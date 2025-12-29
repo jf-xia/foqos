@@ -21,6 +21,7 @@ Inspected:
 
 Notes:
 - All targets shown here have `GENERATE_INFOPLIST_FILE = YES` in `project.pbxproj`, so some Info.plist keys are injected via build settings (e.g. `INFOPLIST_KEY_NSCameraUsageDescription`).
+- `project.pbxproj` uses lowercase paths like `foqos/Info.plist` and `foqos/foqos.entitlements`, while the repo folder on disk is `Foqos/…`. On macOS this often works (case-insensitive FS), but it’s a real portability/CI risk on case-sensitive file systems.
 
 ## Confirmed
 
@@ -119,6 +120,7 @@ Confirmed shared UserDefaults suite usage:
 - Whether the project uses Push Notifications (no `aps-environment` key found in the inspected entitlements).
 - Whether the project uses iCloud / Keychain sharing / Sign in with Apple capabilities (no such entitlements observed in the inspected `.entitlements` files).
 - Whether the Device Activity monitor extension reads/writes shared state via the App Group (the extension has the App Group entitlement, but `DeviceActivityMonitorExtension.swift` doesn’t show `UserDefaults(suiteName:)` usage).
+- Whether the lowercase `foqos/...` paths in `project.pbxproj` cause build failures on case-sensitive file systems (they won’t on most developer Macs, but can in CI).
 
 ## How to confirm
 
@@ -131,6 +133,8 @@ Confirmed shared UserDefaults suite usage:
   - Inspect build settings per configuration for `CODE_SIGN_ENTITLEMENTS` and platform-specific overrides.
 - Device monitor shared state:
   - Search `FoqosDeviceMonitor/**/*.swift` for `UserDefaults(suiteName:` and `FileManager.default.containerURL(forSecurityApplicationGroupIdentifier:`.
+- Case-sensitive path risk:
+  - Try building on a case-sensitive APFS volume (or CI runner configured as such) and watch for missing file errors referencing `foqos/Info.plist` or `foqos/foqos.entitlements`.
 
 ## Key takeaways
 
