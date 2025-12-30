@@ -39,6 +39,18 @@
 - **已确认现象**：模拟器构建时出现警告：`FoqosShieldConfig`（1.0）、`FoqosWidgetExtension`（1.11）、`FoqosDeviceMonitor`（1.11）与主 App（1.28）的 `CFBundleShortVersionString` 不一致。
 - **未确认影响**：这在 App Store / TestFlight 上传或审核时是否会被当作错误（通常建议一致）。
 
+8) `DeviceActivitySchedule` 跨午夜的 schedule（例如 23:00–07:00）在当前实现下是否按预期工作？
+- **已确认现象**：项目直接用 `DateComponents(hour:minute:)` 构造 `DeviceActivitySchedule(intervalStart:intervalEnd:)`，未看到针对跨天的特殊处理。
+- **未确认影响**：跨天区间是否会被系统视为无效、被拆分、或产生意外的 `nextInterval` 计算，需真机验证。
+
+9) break/strategy timer 的 one-shot schedule 为什么固定 `intervalStart = 00:00`？
+- **已确认现象**：`DeviceActivityCenterUtil.getTimeIntervalStartAndEnd(from:)` 返回 `intervalStart = 00:00`，`intervalEnd = now + minutes`（封顶 23:59），并用于 `repeats: false` 的 break/strategy timer。
+- **未确认影响**：这是否是刻意利用“当前已在 interval 内可触发回调”的特性，还是会在某些时间点导致不触发/延迟触发。
+
+10) Device Activity Report Extension（`com.apple.deviceactivityui.report-extension`）是否计划加入？
+- **已确认现象**：工程当前只有 Widget/DeviceActivity Monitor/Shield Config 三个 extension target，没有 report extension。
+- **未确认影响**：如果未来要做“使用洞察/报告”，需要新增 target 并确认其沙盒限制（例如网络、App Group 访问）。
+
 ## How to confirm
 
 - (1) iOS 最低版本：
@@ -61,6 +73,20 @@
 - (7) Extension 版本号一致性：
   - 查看 [foqos.xcodeproj/project.pbxproj](../../foqos.xcodeproj/project.pbxproj) 中各 target 的 `MARKETING_VERSION`。
   - 真机/上传验证：尝试 `Archive` 并在 Organizer 验证/上传时观察是否报错（需要开发者账号环境，仓库内无法确认）。
+
+- (8) 跨午夜 schedule：
+  - 代码侧：从 `BlockedProfileSchedule` 的 start/end 字段构造跨天区间，调用 `DeviceActivityCenterUtil.scheduleTimerActivity(for:)`。
+  - 真机验证：观察 `DeviceActivityMonitorExtension.intervalDidStart/End` 是否按预期触发。
+  - 可选：在调试页面打印 `DeviceActivitySchedule.nextInterval`（需要额外临时代码）。
+
+- (9) break/strategy one-shot intervalStart 固定为 00:00 的影响：
+  - 真机验证：分别在一天的早/晚触发 break/strategy timer，观察是否能立即触发 start、到期触发 end。
+  - 对比实验（仅用于理解，不建议直接上生产）：把 `intervalStart` 改为“当前 hour/minute”，对比回调行为。
+
+- (10) report extension 计划与限制：
+  - 工程侧：在 `project.pbxproj` 搜 `com.apple.deviceactivityui.report-extension` 确认是否新增。
+  - 文档侧：查 Apple 对 report extension 的沙盒说明（网络/数据导出限制）。
+  - 真机验证：在 report extension 里尝试网络请求与 App Group 访问（确认哪些被允许）。
 
 ## Key takeaways
 
