@@ -1,0 +1,36 @@
+```mermaid
+---
+alt: "Start/stop session end-to-end sequence"
+---
+sequenceDiagram
+    accTitle: Start/stop session end-to-end sequence
+    accDescr: User-triggered session start/stop via manual/NFC/QR paths, converging on ManagedSettings enforcement and SwiftData session persistence.
+
+    actor User as User
+    participant App as Foqos App (SwiftUI)
+    participant SM as StrategyManager
+    participant Strat as BlockingStrategy (Manual/NFC/QR/...)
+    participant AB as AppBlockerUtil
+    participant MS as ManagedSettingsStore
+    participant SD as SwiftData (BlockedProfileSession)
+    participant LA as LiveActivityManager (ActivityKit)
+
+    User->>App: Start/Stop action (UI) OR scan NFC/QR
+    App->>SM: startBlocking / stopBlocking
+    SM->>Strat: startBlocking(profile) / stopBlocking(session)
+
+    alt Start
+        Strat->>AB: activateRestrictions(ProfileSnapshot)
+        AB->>MS: set shield/app/web rules
+        Strat->>SD: createSession(tag, profile)
+        Strat-->>SM: onSessionCreation(started)
+        SM->>LA: startSessionActivity(session)
+    else Stop
+        Strat->>Strat: validate physical unblock (optional)
+        Strat->>SD: endSession()
+        Strat->>AB: deactivateRestrictions()
+        AB->>MS: clear rules
+        Strat-->>SM: onSessionCreation(ended)
+        SM->>LA: endSessionActivity()
+    end
+```

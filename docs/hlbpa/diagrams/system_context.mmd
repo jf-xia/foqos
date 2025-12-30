@@ -1,0 +1,49 @@
+```mermaid
+---
+alt: "System context: app, extensions, and Apple platform services"
+---
+flowchart TB
+    accTitle: System context: app, extensions, and Apple platform services
+    accDescr: High-level component map showing Foqos app and its extensions integrating with Screen Time APIs, NFC/Camera, background tasks, widgets, and live activities.
+
+    User[User] --> App[Foqos App (SwiftUI)]
+
+    subgraph ApplePlatform[Apple Platform Services]
+        FC[FamilyControls AuthorizationCenter]
+        MS[ManagedSettings (ManagedSettingsStore)]
+        DA[DeviceActivityCenter + schedules]
+        DASY[DeviceActivity system callbacks]
+        NFC[CoreNFC]
+        Cam[Camera]
+        BG[BGTaskScheduler]
+        UN[UserNotifications]
+        WK[WidgetKit]
+        AK[ActivityKit]
+        ULinks[Universal Links / Associated Domains]
+    end
+
+    App --> FC
+    App -->|apply restrictions| MS
+    App -->|startMonitoring| DA
+    App --> NFC
+    App --> Cam
+    App --> BG
+    App --> UN
+    App --> WK
+    App --> AK
+    App --> ULinks
+
+    subgraph Extensions[App Extensions]
+        Mon[FoqosDeviceMonitor\n(DeviceActivity Monitor Extension)]
+        Shield[FoqosShieldConfig\n(Shield Configuration Extension)]
+        Widget[FoqosWidgetExtension\n(Widget + Live Activity widgets)]
+    end
+
+    DA --> DASY --> Mon
+    MS --> Shield
+    WK --> Widget
+    AK --> Widget
+
+    Shared[App Group UserDefaults\n(SharedData snapshots)]
+    App <--> Shared
+    Mon <--> Shared

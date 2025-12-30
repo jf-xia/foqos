@@ -1,0 +1,18 @@
+```mermaid
+---
+alt: "Scheduled monitoring and extension-driven enforcement flow"
+---
+flowchart LR
+    accTitle: Scheduled monitoring and extension-driven enforcement flow
+    accDescr: App schedules DeviceActivity monitoring; system wakes the monitor extension which reads shared snapshots and applies ManagedSettings restrictions.
+
+    U[User configures schedule/timer in App] --> A[App: DeviceActivityCenterUtil]
+    A -->|startMonitoring(name, schedule)| DAC[DeviceActivityCenter]
+    DAC -->|interval boundary reached| SYS[iOS system]
+    SYS -->|launch callback| EXT[FoqosDeviceMonitor: DeviceActivityMonitorExtension]
+    EXT -->|intervalDidStart/End(activityName)| TAU[TimerActivityUtil]
+    TAU -->|snapshot(profileId)| SHARED[SharedData (App Group UserDefaults)]
+    TAU --> STA[ScheduleTimerActivity / BreakTimerActivity / StrategyTimerActivity]
+    STA --> AB[AppBlockerUtil]
+    AB --> MS[ManagedSettingsStore]
+    STA --> SHARED
