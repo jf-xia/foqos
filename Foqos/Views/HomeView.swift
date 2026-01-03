@@ -103,6 +103,14 @@ struct HomeView: View {
         .padding(.trailing, 16)
         .padding(.top, 16)
 
+        AuthorizationCallout(
+          authorizationStatus: requestAuthorizer.getAuthorizationStatus(),
+          onAuthorizationHandler: {
+            requestAuthorizer.requestAuthorization()
+          }
+        )
+        .padding(.horizontal, 16)
+
         if profiles.isEmpty {
           Welcome(onTap: {
             showNewProfileView = true
@@ -152,10 +160,6 @@ struct HomeView: View {
           profileIsActive: isBlocking,
           tapProfileDebugHandler: {
             showingDebugMode = true
-          },
-          authorizationStatus: requestAuthorizer.getAuthorizationStatus(),
-          onAuthorizationHandler: {
-            requestAuthorizer.requestAuthorization()
           }
         )
         .frame(maxWidth: .infinity)

@@ -13,6 +13,7 @@ class StrategyManager: ObservableObject {
     QRCodeBlockingStrategy(),
     QRManualBlockingStrategy(),
     QRTimerBlockingStrategy(),
+    ShortcutTimerBlockingStrategy(),
   ]
 
   @Published var elapsedTime: TimeInterval = 0
@@ -199,7 +200,8 @@ class StrategyManager: ObservableObject {
 
   func startSessionFromBackground(
     _ profileId: UUID,
-    context: ModelContext
+    context: ModelContext,
+    durationInMinutes: Int? = nil
   ) {
     do {
       guard
@@ -213,8 +215,6 @@ class StrategyManager: ObservableObject {
         return
       }
 
-      let manualStrategy = getStrategy(id: ManualBlockingStrategy.id)
-
       if let localActiveSession = getActiveSession(context: context) {
         print(
           "session is already active for profile: \(localActiveSession.blockedProfile.name), not starting a new one"
@@ -222,11 +222,35 @@ class StrategyManager: ObservableObject {
         return
       }
 
-      _ = manualStrategy.startBlocking(
-        context: context,
-        profile: profile,
-        forceStart: true
-      )
+      if let duration = durationInMinutes {
+        if duration < 15 || duration > 1440 {
+          self.errorMessage = "Duration must be between 15 and 1440 minutes"
+          return
+        }
+
+        if let strategyTimerData = StrategyTimerData.toData(
+          from: StrategyTimerData(durationInMinutes: duration)
+        ) {
+          profile.strategyData = strategyTimerData
+          profile.updatedAt = Date()
+          BlockedProfiles.updateSnapshot(for: profile)
+          try context.save()
+        }
+
+        let shortcutTimerStrategy = getStrategy(id: ShortcutTimerBlockingStrategy.id)
+        _ = shortcutTimerStrategy.startBlocking(
+          context: context,
+          profile: profile,
+          forceStart: true
+        )
+      } else {
+        let manualStrategy = getStrategy(id: ManualBlockingStrategy.id)
+        _ = manualStrategy.startBlocking(
+          context: context,
+          profile: profile,
+          forceStart: true
+        )
+      }
     } catch {
       self.errorMessage = "Something went wrong fetching profile"
     }

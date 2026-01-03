@@ -1,8 +1,17 @@
+import FamilyControls
 import SwiftUI
+
+let AMZN_STORE_LINK = "https://amzn.to/4fbMuTM"
 
 struct SettingsView: View {
   @Environment(\.dismiss) private var dismiss
   @EnvironmentObject var themeManager: ThemeManager
+  @EnvironmentObject var requestAuthorizer: RequestAuthorizer
+
+  private var appVersion: String {
+    Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+      ?? "1.0"
+  }
 
   var body: some View {
     NavigationStack {
@@ -38,6 +47,62 @@ struct SettingsView: View {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
           }
         }
+
+        Section("About") {
+          HStack {
+            Text("Version")
+              .foregroundStyle(.primary)
+            Spacer()
+            Text("v\(appVersion)")
+              .foregroundStyle(.secondary)
+          }
+
+          HStack {
+            Text("Screen Time Access")
+              .foregroundStyle(.primary)
+            Spacer()
+            HStack(spacing: 8) {
+              Circle()
+                .fill(requestAuthorizer.getAuthorizationStatus() == .approved ? .green : .red)
+                .frame(width: 8, height: 8)
+              Text(requestAuthorizer.getAuthorizationStatus() == .approved ? "Authorized" : "Not Authorized")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+            }
+          }
+
+          HStack {
+            Text("Made in")
+              .foregroundStyle(.primary)
+            Spacer()
+            Text("Calgary AB 🇨🇦")
+              .foregroundStyle(.secondary)
+          }
+        }
+
+        Section("Buy NFC Tags") {
+          Link(destination: URL(string: AMZN_STORE_LINK)!) {
+            HStack {
+              Text("Amazon")
+                .foregroundColor(.primary)
+              Spacer()
+              Image(systemName: "arrow.up.right.square")
+                .foregroundColor(.secondary)
+            }
+          }
+        }
+
+        Section("Help") {
+          Link(destination: URL(string: "https://www.foqos.app/blocking-native-apps.html")!) {
+            HStack {
+              Text("Blocking Native Apps")
+                .foregroundColor(.primary)
+              Spacer()
+              Image(systemName: "arrow.up.right.square")
+                .foregroundColor(.secondary)
+            }
+          }
+        }
       }
       .navigationTitle("Settings")
       .toolbar {
@@ -55,4 +120,5 @@ struct SettingsView: View {
 #Preview {
   SettingsView()
     .environmentObject(ThemeManager.shared)
+    .environmentObject(RequestAuthorizer())
 }
