@@ -12,8 +12,8 @@
 	"argv": [
 		"/opt/homebrew/bin/xcode-build-server"
 	],
-	"workspace": "/Users/awaseem/Sandbox/foqos/foqos.xcodeproj/project.xcworkspace",
-	"build_root": "/Users/awaseem/Library/Developer/Xcode/DerivedData/foqos-eniuxedmvkmdhcfookyponipurdt",
+	"workspace": "/Users/jack/work/foqos/foqos.xcodeproj/project.xcworkspace",
+	"build_root": "/Users/jack/Library/Developer/Xcode/DerivedData/foqos-genmnkeaedciwzgvuqpjkckdjmrw",
 	"scheme": "foqos",
 	"kind": "xcode"
 }

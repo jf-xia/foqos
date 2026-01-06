@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "sweetpad",
+			"action": "run",
+			"problemMatcher": [
+				"$sweetpad-watch",
+				"$sweetpad-xcodebuild-default",
+				"$sweetpad-xcbeautify-errors",
+				"$sweetpad-xcbeautify-warnings"
+			],
+			"label": "sweetpad: run",
+			"detail": "Run the app (without building)"
+		}
+	]
+}
