@@ -4,7 +4,20 @@
 			"type": "stdio",
 			"command": "npx",
 			"args": ["-y", "@kimsungwhee/apple-docs-mcp"]
-		}
+		},
+		"xcodebuildmcp": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@smithery/cli@latest",
+				"run",
+				"cameroncooke/xcodebuildmcp"
+			]
+		},
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    }
 	},
 	"inputs": []
 }
