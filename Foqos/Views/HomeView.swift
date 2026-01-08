@@ -305,6 +305,7 @@ struct HomeView: View {
     .environmentObject(TipManager())
     .environmentObject(NavigationManager())
     .environmentObject(StrategyManager())
+    .environmentObject(ThemeManager())
     .defaultAppStorage(UserDefaults(suiteName: "preview")!)
     .onAppear {
       UserDefaults(suiteName: "preview")!.set(
