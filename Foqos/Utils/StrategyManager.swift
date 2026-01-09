@@ -2,6 +2,300 @@ import SwiftData
 import SwiftUI
 import WidgetKit
 
+/**
+ # 会话管理协调器(Session Coordination Manager)
+ 
+ ## 1️⃣ 作用与核心功能
+ 
+ 本管理类为专注力/阻止应用(Focus/Blocking App)提供会话生命周期的统一协调层。主要功能包括:
+ 
+ ### 输入 → 处理 → 输出示例:
+ 
+ - **启动会话**: 接收 `BlockedProfiles` (阻止配置) → 调用对应策略(Strategy) → 创建 `BlockedProfileSession` → 更新 `activeSession`、启动计时器、同步 Widget & Live Activity
+ - **停止会话**: 传入当前活动会话 → 调用策略停止逻辑 → 清理计时器、取消通知、刷新 Widget & Live Activity
+ - **切换休息**: 检测 `activeSession.isBreakAvailable` → 启动/停止 DeviceActivity 休息计时器 → 安排回归提醒
+ - **紧急解锁**: 验证剩余次数 → 强制终止会话(绕过策略限制) → 消耗一次紧急解锁配额(默认3次/4周)
+ 
+ ---
+ 
+ ## 2️⃣ 项目内用法与相关功能
+ 
+ ### 🎯 用法 1: App 入口注入(Singleton + EnvironmentObject)
+ **关联流程**: App 初始化 → 注入为环境对象 → 全局可访问
+ 
+ ```swift
+ @main
+ struct FocusApp: App {
+   @StateObject private var strategyManager = StrategyManager.shared
+   
+   var body: some Scene {
+     WindowGroup {
+       <RootView>()
+         .environmentObject(strategyManager)
+     }
+     .modelContainer(container)
+   }
+ }
+ ```
+ 
+ ### 🎯 用法 2: 主界面切换阻止状态(UI Toggle)
+ **关联流程**: 用户点击配置卡片 → 调用 `toggleBlocking` → 自动判断开始/停止 → UI 自动刷新
+ 
+ ```swift
+ struct <DashboardView>: View {
+   @EnvironmentObject var strategyManager: StrategyManager
+   @Environment(\.modelContext) private var context
+   
+   var body: some View {
+     Button("Toggle Focus") {
+       strategyManager.toggleBlocking(
+         context: context,
+         activeProfile: selectedProfile
+       )
+     }
+   }
+ }
+ ```
+ 
+ ### 🎯 用法 3: 休息模式切换(Break Management)
+ **关联流程**: 会话进行中 → 用户请求休息 → 临时解除限制 → 倒计时结束自动恢复
+ 
+ ```swift
+ struct <SessionControlPanel>: View {
+   @EnvironmentObject var strategyManager: StrategyManager
+   
+   var body: some View {
+     if strategyManager.isBreakAvailable {
+       Button(strategyManager.isBreakActive ? "End Break" : "Take Break") {
+         strategyManager.toggleBreak(context: context)
+       }
+     }
+   }
+ }
+ ```
+ 
+ ### 🎯 用法 4: App Intent 后台启动(Background Trigger)
+ **关联流程**: Shortcuts/Siri/Widget → 调用 App Intent → 静默启动会话
+ 
+ ```swift
+ struct <StartSessionIntent>: AppIntent {
+   @MainActor
+   func perform() async throws -> some IntentResult {
+     StrategyManager.shared.startSessionFromBackground(
+       profileId,
+       context: modelContext,
+       durationInMinutes: 60
+     )
+     return .result()
+   }
+ }
+ ```
+ 
+ ### 🎯 用法 5: 紧急解锁(Emergency Override)
+ **关联流程**: 设置页 → 用户触发紧急解锁 → 扣除配额 → 强制停止当前会话
+ 
+ ```swift
+ struct <EmergencyView>: View {
+   @EnvironmentObject var strategyManager: StrategyManager
+   
+   private func performEmergencyUnblock() {
+     guard strategyManager.getRemainingEmergencyUnblocks() > 0 else { return }
+     strategyManager.emergencyUnblock(context: context)
+     // 会话立即终止,Widget 同步刷新
+   }
+ }
+ ```
+ 
+ ### 🎯 用法 6: 计时器状态展示(Timer Display)
+ **关联流程**: 会话运行中 → 订阅 `@Published elapsedTime` → UI 实时显示倒计时/已用时长
+ 
+ ```swift
+ struct <SessionTimerView>: View {
+   @EnvironmentObject var strategyManager: StrategyManager
+   
+   var body: some View {
+     Text(strategyManager.elapsedTime.formatMMSS)
+       .onAppear {
+         // strategyManager.startTimer() 在会话创建时自动调用
+       }
+   }
+ }
+ ```
+ 
+ ---
+ 
+ ## 3️⃣ GitHub 公开仓库常见模式
+ 
+ 基于对 Swift 生态的分析,类似的单例管理模式在以下场景中广泛使用:
+ 
+ ### 🌍 模式 1: `@StateObject` + `.shared` Singleton Pattern
+ **典型应用**: 全局状态管理器(如主题、网络、音频播放器)
+ 
+ ```swift
+ class <GlobalStateManager>: ObservableObject {
+   static let shared = <GlobalStateManager>()
+   @Published var currentState: <State> = .idle
+   
+   func updateState(to newState: <State>) {
+     currentState = newState
+   }
+ }
+ 
+ @main
+ struct <App>: App {
+   @StateObject private var stateManager = <GlobalStateManager>.shared
+   
+   var body: some Scene {
+     WindowGroup {
+       <ContentView>()
+         .environmentObject(stateManager)
+     }
+   }
+ }
+ ```
+ 
+ ### 🌍 模式 2: Session-Based Architecture with Timer
+ **典型应用**: Pomodoro 计时器、健身追踪、媒体播放器
+ 
+ ```swift
+ class <SessionCoordinator>: ObservableObject {
+   @Published var activeSession: <Session>?
+   @Published var elapsedTime: TimeInterval = 0
+   private var timer: Timer?
+   
+   func startSession(config: <Configuration>) {
+     let session = <Session>(config: config, startTime: Date())
+     activeSession = session
+     
+     timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+       self.elapsedTime = Date().timeIntervalSince(session.startTime)
+     }
+   }
+   
+   func stopSession() {
+     timer?.invalidate()
+     timer = nil
+     activeSession = nil
+     elapsedTime = 0
+   }
+ }
+ ```
+ 
+ ### 🌍 模式 3: Strategy Pattern with Dynamic View Injection
+ **典型应用**: 支付网关选择、认证方式切换、主题引擎
+ 
+ ```swift
+ protocol <ExecutionStrategy> {
+   func execute(context: <Context>) -> (any View)?
+ }
+ 
+ class <StrategyCoordinator>: ObservableObject {
+   static let availableStrategies: [<ExecutionStrategy>] = [
+     <StrategyA>(), <StrategyB>(), <StrategyC>()
+   ]
+   
+   @Published var customView: (any View)? = nil
+   
+   func getStrategy(id: String) -> <ExecutionStrategy> {
+     let strategy = Self.availableStrategies.first { $0.identifier == id } ?? <DefaultStrategy>()
+     
+     // 注入回调以便策略可以展示自定义 UI
+     strategy.onViewRequired = { view in
+       self.customView = view
+     }
+     
+     return strategy
+   }
+ }
+ ```
+ 
+ ### 🌍 模式 4: Emergency Override with Quota Management
+ **典型应用**: 试用次数限制、跳过广告配额、快速登录令牌
+ 
+ ```swift
+ class <QuotaManager>: ObservableObject {
+   @AppStorage("remainingCredits") private var credits: Int = 3
+   @AppStorage("resetPeriodWeeks") private var resetWeeks: Int = 4
+   @AppStorage("lastResetTimestamp") private var lastReset: Double = 0
+   
+   func consumeCredit() {
+     guard credits > 0 else { return }
+     credits -= 1
+   }
+   
+   func checkAndResetIfNeeded() {
+     let elapsed = Date().timeIntervalSince(Date(timeIntervalSinceReferenceDate: lastReset))
+     let periodInSeconds = TimeInterval(resetWeeks * 7 * 24 * 60 * 60)
+     
+     if elapsed >= periodInSeconds {
+       credits = 3
+       lastReset = Date().timeIntervalSinceReferenceDate
+     }
+   }
+ }
+ ```
+ 
+ ### 🌍 模式 5: Cross-Extension State Sync (App Groups + Snapshots)
+ **典型应用**: Widget 数据同步、Extension 状态共享、剪贴板扩展
+ 
+ ```swift
+ class <SyncCoordinator>: ObservableObject {
+   @Published var activeSession: <Session>?
+   
+   func syncToExtensions() {
+     // 将状态序列化到 App Group Shared Container
+     if let snapshot = activeSession?.toSnapshot() {
+       <SharedDataStore>.save(snapshot, to: "active_session")
+     }
+     
+     // 通知 Widget 刷新
+     WidgetCenter.shared.reloadTimelines(ofKind: "<WidgetKind>")
+   }
+   
+   func loadFromExtensions() {
+     if let snapshot = <SharedDataStore>.load(from: "active_session") {
+       activeSession = <Session>.fromSnapshot(snapshot)
+     }
+   }
+ }
+ ```
+ 
+ ---
+ 
+ ## ⚠️ 注意事项与平台差异
+ 
+ ### 线程安全(Thread Safety)
+ - 所有 `@Published` 属性变更会自动派发到主线程(Main Thread)
+ - Timer 在 `startTimer()` 中使用 `scheduledTimer`,默认运行在主运行循环(Main RunLoop)
+ - 策略回调(`onSessionCreation`, `onErrorMessage`)应确保在主线程更新 UI
+ 
+ ### 真机 vs 模拟器差异
+ - **FamilyControls(Screen Time API)**: 模拟器无法测试,必须在真机运行(需要配置 entitlements)
+ - **NFC/QR 策略**: 部分硬件特性仅真机可用
+ - **App Groups**: 在调试时需确保所有 Target(App + Extensions)使用相同的 App Group ID
+ 
+ ### SwiftData 并发模型
+ - `ModelContext` 是线程绑定的(Thread-bound)
+ - 必须在同一线程/Actor 内使用同一个 `ModelContext` 实例
+ - App Intent 通过 `AppDependencyManager` 异步获取共享的 `ModelContainer`
+ 
+ ### Entitlements 前置条件
+ - **Family Controls**: 需在 `*.entitlements` 中启用 Screen Time API
+ - **App Groups**: 用于主 App 与 Extension 间共享数据
+ - **NFC**: 需要 NFC Tag Reading entitlement(部分策略依赖)
+ 
+ ---
+ 
+ ## 📖 相关系统类型
+ 
+ - `BlockedProfiles`: 阻止配置的主数据模型(SwiftData)
+ - `BlockedProfileSession`: 单次会话记录,包含开始时间、结束时间、休息状态等
+ - `BlockingStrategy`: 策略协议,定义 `startBlocking` / `stopBlocking` 行为
+ - `LiveActivityManager`: 管理 iOS 16+ Dynamic Island / Lock Screen 实时活动
+ - `DeviceActivityCenterUtil`: 封装 DeviceActivity 框架(Schedule 定时、Break 休息)
+ - `AppBlockerUtil`: 包装 `ManagedSettingsStore`,实际执行 App/Website 限制
+ */
+
 class StrategyManager: ObservableObject {
   static var shared = StrategyManager()
 
