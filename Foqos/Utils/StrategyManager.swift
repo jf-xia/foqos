@@ -296,9 +296,59 @@ import WidgetKit
  - `AppBlockerUtil`: 包装 `ManagedSettingsStore`,实际执行 App/Website 限制
  */
 
+// MARK: - StrategyManager Implementation
+// StrategyManager 实现 / StrategyManager Implementation
+/// 
+/// ⚠️ 架构问题 / Architecture Issue: 
+/// 此类承担了过多职责（God Object 反模式），应该拆分为：
+/// This class has too many responsibilities (God Object anti-pattern), should be split into:
+/// - SessionCoordinator: 会话生命周期管理 / Session lifecycle management
+/// - TimerManager: 计时器管理 / Timer management  
+/// - StrategyRegistry: 策略注册和获取 / Strategy registration and retrieval
+/// - EmergencyManager: 紧急解锁配额管理 / Emergency unlock quota management
+/// 
+/// 📊 文件统计 / File Statistics: 963 行 / 963 lines (P0 重构目标 / P0 refactoring target)
+///
+/// 🔄 状态同步统一入口（计划）/ Unified State Sync Gateway (Planned)
+/// 为了避免在多个方法中重复更新 Widget、Live Activity、App Group 快照，建议收敛到单一网关：
+/// `syncState(profile: BlockedProfiles?, session: BlockedProfileSession?, reason: StateChangeReason)`。
+///
+/// - 触发时机：任何开始/停止/休息切换/计时策略变更/策略自定义视图完成后。
+/// - 执行内容：
+///   1) 更新 AppBlockerUtil 状态（若需要），
+///   2) 刷新 SharedData 快照（ProfileSnapshot / SessionSnapshot），
+///   3) 通知 WidgetCenter.reloadTimelines，
+///   4) 刷新/结束 LiveActivity（ActivityKit）。
+/// - 收敛收益：消除分散的副作用调用，降低遗漏与一致性风险，便于测试与回滚。
 class StrategyManager: ObservableObject {
+  
+  // MARK: - Singleton Instance
+  // 全局单例实例 / Global Singleton Instance
+  /// 整个应用共享同一个 StrategyManager 实例
+  /// The entire app shares the same StrategyManager instance
+  /// 
+  /// ⚠️ 注意 / Note: Singleton 模式使测试困难，重构时考虑依赖注入
+  /// Singleton pattern makes testing difficult, consider DI during refactoring
   static var shared = StrategyManager()
 
+  // MARK: - Strategy Registry
+  // 策略注册表 / Strategy Registry
+  /// 所有可用的屏蔽策略列表（共 8 种）
+  /// List of all available blocking strategies (8 total)
+  /// 
+  /// 📌 策略类型 / Strategy Types:
+  /// - Manual: 手动开始/停止 / Manual start/stop
+  /// - NFC: 需要扫描 NFC 标签才能停止 / Requires NFC tag scan to stop
+  /// - NFCManual: NFC + 手动停止 / NFC + manual stop
+  /// - NFCTimer: NFC + 定时自动停止 / NFC + timer auto-stop
+  /// - QRCode: 需要扫描二维码才能停止 / Requires QR code scan to stop
+  /// - QRManual: QR + 手动停止 / QR + manual stop
+  /// - QRTimer: QR + 定时自动停止 / QR + timer auto-stop
+  /// - ShortcutTimer: 通过 Shortcuts 启动的定时会话 / Timer session via Shortcuts
+  /// 
+  /// 🔄 策略选择流程 / Strategy Selection Flow:
+  /// BlockedProfiles.blockingStrategyId -> getStrategy(id:) -> 返回对应策略实例
+  /// BlockedProfiles.blockingStrategyId -> getStrategy(id:) -> Returns strategy instance
   static let availableStrategies: [BlockingStrategy] = [
     ManualBlockingStrategy(),
     NFCBlockingStrategy(),
@@ -310,38 +360,146 @@ class StrategyManager: ObservableObject {
     ShortcutTimerBlockingStrategy(),
   ]
 
+  // MARK: - Published Properties (UI Observable State)
+  // 发布属性（UI 可观察状态）/ Published Properties (UI Observable State)
+  
+  /// 已过时间（会话模式）或剩余时间（休息模式）
+  /// Elapsed time (session mode) or remaining time (break mode)
+  /// 
+  /// 📊 更新频率 / Update Frequency: 每秒更新 / Updated every second
+  /// 🔄 数据流 / Data Flow: timer -> elapsedTime -> UI (Text/ProgressView)
   @Published var elapsedTime: TimeInterval = 0
+  
+  /// 计时器实例（每秒触发一次）
+  /// Timer instance (fires every second)
+  /// 
+  /// ⚠️ 生命周期 / Lifecycle: 会话开始时创建，结束时销毁
+  /// Created when session starts, invalidated when session ends
   @Published var timer: Timer?
+  
+  /// 当前活动会话（如果存在）
+  /// Current active session (if exists)
+  /// 
+  /// 🔑 关键属性 / Key Property: 整个应用的核心状态
+  /// Core state of the entire app
+  /// - nil: 无活动会话 / No active session
+  /// - BlockedProfileSession: 有活动会话 / Has active session
+  /// 
+  /// 📍 使用位置 / Used In:
+  /// - Dashboard: 显示会话状态 / Display session status
+  /// - SessionView: 显示会话详情 / Display session details
+  /// - Widget: 同步到 Widget / Sync to Widget
+  /// - Live Activity: 同步到动态岛 / Sync to Dynamic Island
   @Published var activeSession: BlockedProfileSession?
 
+  /// 是否显示策略自定义视图（如 NFC 扫描界面）
+  /// Whether to show strategy custom view (e.g., NFC scan UI)
+  /// 
+  /// 🎯 用途 / Purpose: 某些策略需要显示特殊 UI（如 NFC/QR 扫描）
+  /// Some strategies need to show special UI (e.g., NFC/QR scanning)
   @Published var showCustomStrategyView: Bool = false
+  
+  /// 策略自定义视图内容（类型擦除的 View）
+  /// Strategy custom view content (type-erased View)
+  /// 
+  /// 💡 实现方式 / Implementation: 使用 `any View` 实现动态视图注入
+  /// Uses `any View` for dynamic view injection
   @Published var customStrategyView: (any View)? = nil
 
+  /// 错误消息（显示在 UI 顶部）
+  /// Error message (displayed at top of UI)
+  /// 
+  /// 🔄 数据流 / Data Flow: 策略回调 -> errorMessage -> Alert/Toast
   @Published var errorMessage: String?
 
+  // MARK: - Persistent Storage (Emergency Unlocks)
+  // 持久化存储（紧急解锁配额）/ Persistent Storage (Emergency Unlocks)
+  
+  /// 剩余紧急解锁次数（默认 3 次）
+  /// Remaining emergency unlock count (default: 3)
+  /// 
+  /// 💰 配额机制 / Quota Mechanism:
+  /// - 初始值：3 次 / Initial: 3 times
+  /// - 每次紧急解锁消耗 1 次 / Each emergency unlock consumes 1
+  /// - 定期重置（默认 4 周）/ Resets periodically (default: 4 weeks)
+  /// 
+  /// 🔐 使用场景 / Use Case: 用户真正需要但无法通过正常方式停止会话时
+  /// When user genuinely needs to stop session but can't through normal means
   @AppStorage("emergencyUnblocksRemaining") private var emergencyUnblocksRemaining: Int = 3
+  
+  /// 紧急解锁重置周期（周数，默认 4 周）
+  /// Emergency unlock reset period (in weeks, default: 4)
   @AppStorage("emergencyUnblocksResetPeriodInWeeks") private
     var emergencyUnblocksResetPeriodInWeeks: Int = 4
+  
+  /// 上次重置紧急解锁的时间戳
+  /// Timestamp of last emergency unlock reset
+  /// 
+  /// 📅 格式 / Format: TimeInterval since reference date (Double)
   @AppStorage("lastEmergencyUnblocksResetDate") private var lastEmergencyUnblocksResetDateTimestamp:
     Double = 0
 
+  // MARK: - Private Dependencies
+  // 私有依赖 / Private Dependencies
+  
+  /// Live Activity 管理器（管理动态岛显示）
+  /// Live Activity manager (manages Dynamic Island display)
   private let liveActivityManager = LiveActivityManager.shared
 
+  /// 计时器工具（后台任务和通知）
+  /// Timer utility (background tasks and notifications)
   private let timersUtil = TimersUtil()
+  
+  /// App 屏蔽工具（执行实际的 App/Website 限制）
+  /// App blocker utility (executes actual App/Website restrictions)
   private let appBlocker = AppBlockerUtil()
 
+  // MARK: - Computed Properties
+  // 计算属性 / Computed Properties
+  
+  /// 是否正在屏蔽（是否有活动会话）
+  /// Whether currently blocking (has active session)
+  /// 
+  /// 🔄 数据流 / Data Flow: activeSession?.isActive -> UI enable/disable logic
+  /// 📍 使用位置 / Used In: Dashboard 按钮状态、Widget 显示
   var isBlocking: Bool {
     return activeSession?.isActive == true
   }
 
+  /// 休息模式是否激活
+  /// Whether break mode is active
+  /// 
+  /// 📊 判断逻辑 / Logic: 
+  /// - true: 用户正在休息，限制已临时解除
+  /// - false: 正常会话或无会话
   var isBreakActive: Bool {
     return activeSession?.isBreakActive == true
   }
 
+  /// 休息模式是否可用
+  /// Whether break mode is available
+  /// 
+  /// 📋 可用条件 / Available When:
+  /// - 有活动会话 AND
+  /// - 配置文件启用了休息功能 (breakTimeInMinutes > 0)
   var isBreakAvailable: Bool {
     return activeSession?.isBreakAvailable ?? false
   }
 
+  // MARK: - Public Methods - Reminder
+  // 公开方法 - 提醒 / Public Methods - Reminder
+  
+  /// 生成默认的提醒消息
+  /// Generate default reminder message
+  /// 
+  /// - Parameter profile: 配置文件（可选）
+  /// - Returns: 提醒消息文本
+  /// 
+  /// 📝 消息格式 / Message Format:
+  /// - 有 profile: "Get back to productivity by enabling {profileName}"
+  /// - 无 profile: "Get back to productivity"
+  /// 
+  /// 🎯 使用场景 / Use Case: 会话结束后提醒用户重新开始
   func defaultReminderMessage(forProfile profile: BlockedProfiles?) -> String {
     let baseMessage = "Get back to productivity"
     guard let profile else {
@@ -350,24 +508,71 @@ class StrategyManager: ObservableObject {
     return baseMessage + " by enabling \(profile.name)"
   }
 
+  // MARK: - Public Methods - Session Lifecycle
+  // 公开方法 - 会话生命周期 / Public Methods - Session Lifecycle
+  
+  /// 加载活动会话（从数据库和 SharedData 同步）
+  /// Load active session (sync from database and SharedData)
+  /// 
+  /// - Parameter context: SwiftData ModelContext
+  /// 
+  /// 🔄 执行流程 / Execution Flow:
+  /// 1. 从数据库获取最新的活动会话
+  /// 2. 如果会话活动，启动 UI 计时器
+  /// 3. 启动 Live Activity（仅前台）
+  /// 4. 如果无活动会话，关闭 Live Activity
+  /// 
+  /// 📍 调用时机 / Called When:
+  /// - App 启动时（在 HomeView.onAppear）
+  /// - 从后台返回前台时
+  /// - 会话状态可能在 Extension 中被修改后
+  /// 
+  /// ⚠️ 注意 / Note: 
+  /// - Live Activity 只能在前台启动
+  /// - 需要处理 Extension 在后台修改的会话
   func loadActiveSession(context: ModelContext) {
+    // 获取活动会话（内部会先同步 schedule sessions）
+    // Get active session (internally syncs schedule sessions first)
     activeSession = getActiveSession(context: context)
 
     if activeSession?.isActive == true {
+      // 会话活动：启动 UI 计时器
+      // Session active: start UI timer
       startTimer()
 
+      // 启动 Live Activity（动态岛）
       // Start live activity for existing session if one exists
-      // live activities can only be started when the app is in the foreground
+      // ⚠️ Live activities can only be started when the app is in the foreground
       if let session = activeSession {
         liveActivityManager.startSessionActivity(session: session)
       }
     } else {
-      // Close live activity if no session is active and a scheduled session might have ended
+      // 无活动会话：关闭 Live Activity
+      // No active session: close live activity
+      // 处理场景：scheduled session 可能在后台结束
+      // Handles case: scheduled session might have ended in background
       liveActivityManager.endSessionActivity()
     }
   }
 
+  /// 切换屏蔽状态（智能开关）
+  /// Toggle blocking state (smart switch)
+  /// 
+  /// - Parameters:
+  ///   - context: SwiftData ModelContext
+  ///   - activeProfile: 要激活的配置文件（开始时需要，停止时可选）
+  /// 
+  /// 🎯 智能判断逻辑 / Smart Logic:
+  /// - 如果正在屏蔽 -> 调用 stopBlocking()
+  /// - 如果未屏蔽 -> 调用 startBlocking()
+  /// 
+  /// 📍 使用位置 / Used In:
+  /// - Dashboard 的主切换按钮
+  /// - Profile Card 的快速切换
+  /// 
+  /// 💡 设计优势 / Design Benefit: UI 只需要一个按钮，逻辑自动判断
   func toggleBlocking(context: ModelContext, activeProfile: BlockedProfiles?) {
+    // State Sync 注记：该入口仅路由到 start/stop；副作用更新应统一在网关中处理（见上方“统一入口”）。
     if isBlocking {
       stopBlocking(context: context)
     } else {
@@ -375,12 +580,27 @@ class StrategyManager: ObservableObject {
     }
   }
 
+  /// 切换休息状态
+  /// Toggle break state
+  /// 
+  /// - Parameter context: SwiftData ModelContext
+  /// 
+  /// 🔄 执行逻辑 / Execution Logic:
+  /// - 如果正在休息 -> 调用 stopBreak()（重新开始屏蔽）
+  /// - 如果未休息 -> 调用 startBreak()（暂停屏蔽）
+  /// 
+  /// ⚠️ 前置条件 / Precondition:
+  /// - 必须有活动会话
+  /// - 配置文件必须启用休息功能
+  /// 
+  /// 📍 使用位置 / Used In: SessionView 的休息按钮
   func toggleBreak(context: ModelContext) {
     guard let session = activeSession else {
       print("active session does not exist")
       return
     }
 
+    // State Sync 注记：startBreak()/stopBreak() 完成后统一调用同步网关，确保 Widget/LiveActivity/SharedData 一致。
     if session.isBreakActive {
       stopBreak(context: context)
     } else {
@@ -388,30 +608,83 @@ class StrategyManager: ObservableObject {
     }
   }
 
+  // MARK: - Public Methods - Timer Management
+  // 公开方法 - 计时器管理 / Public Methods - Timer Management
+  
+  /// 启动 UI 计时器（每秒更新一次）
+  /// Start UI timer (updates every second)
+  /// 
+  /// 🔄 更新逻辑 / Update Logic:
+  /// - **休息模式**: 显示剩余休息时间（倒计时）
+  ///   - 计算方式: 休息时长 - (当前时间 - 休息开始时间)
+  ///   - 例：10 分钟休息，已过 3 分钟 -> 显示 7 分钟
+  /// 
+  /// - **正常会话**: 显示已用时间（正计时）
+  ///   - 计算方式: (当前时间 - 会话开始时间) - 总休息时长
+  ///   - 例：会话 1 小时，休息了 10 分钟 -> 显示 50 分钟
+  /// 
+  /// 📊 时间精度 / Time Precision: 秒级更新 / Second-level updates
+  /// 
+  /// 🎯 UI 绑定 / UI Binding:
+  /// @Published elapsedTime -> Text/ProgressView 自动刷新
+  /// 
+  /// ⚠️ 内存管理 / Memory Management:
+  /// - Timer 强引用 self，需在 stopTimer 中 invalidate
+  /// - 使用 [weak self] 可能导致计时器提前释放
   func startTimer() {
+    // 仅更新本地 UI 计时显示；不负责状态同步到扩展。
     timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
       guard let session = self.activeSession else { return }
 
       if session.isBreakActive {
-        // Calculate break time remaining (countdown)
+        // 休息模式：显示剩余时间（倒计时）
+        // Break mode: display remaining time (countdown)
         guard let breakStartTime = session.breakStartTime else { return }
         let timeSinceBreakStart = Date().timeIntervalSince(breakStartTime)
         let breakDurationInSeconds = TimeInterval(session.blockedProfile.breakTimeInMinutes * 60)
+        // max(0, ...) 确保不会显示负数
+        // max(0, ...) ensures we don't display negative time
         self.elapsedTime = max(0, breakDurationInSeconds - timeSinceBreakStart)
       } else {
-        // Calculate session elapsed time
+        // 正常会话：显示已用时间（正计时）
+        // Normal session: display elapsed time (count up)
         let rawElapsedTime = Date().timeIntervalSince(session.startTime)
         let breakDuration = self.calculateBreakDuration()
+        // 减去休息时长，得到净工作时间
+        // Subtract break duration to get net work time
         self.elapsedTime = rawElapsedTime - breakDuration
       }
     }
   }
 
+  /// 停止 UI 计时器并清理
+  /// Stop UI timer and cleanup
+  /// 
+  /// ⚠️ 重要 / Important: 必须调用以避免内存泄漏
+  /// Must be called to avoid memory leaks
+  /// 
+  /// 📍 调用时机 / Called When:
+  /// - 会话结束
+  /// - App 进入后台（可选优化）
+  /// - 用户注销
   func stopTimer() {
+    // 仅释放 UI 计时资源；状态同步由 start/stop/break 等入口负责。
     timer?.invalidate()
     timer = nil
   }
 
+  /// 计算总休息时长
+  /// Calculate total break duration
+  /// 
+  /// - Returns: 休息时长（秒）/ Break duration in seconds
+  /// 
+  /// 📊 计算逻辑 / Calculation Logic:
+  /// - 如果休息已结束: breakEndTime - breakStartTime
+  /// - 如果正在休息: 0（由 startTimer 实时计算）
+  /// - 如果从未休息: 0
+  /// 
+  /// 🎯 用途 / Purpose: 计算会话的净工作时间
+  /// Used to calculate session's net work time
   private func calculateBreakDuration() -> TimeInterval {
     guard let session = activeSession else {
       return 0
@@ -422,9 +695,13 @@ class StrategyManager: ObservableObject {
     }
 
     if let breakEndTime = session.breakEndTime {
+      // 休息已结束，返回实际休息时长
+      // Break has ended, return actual break duration
       return breakEndTime.timeIntervalSince(breakStartTime)
     }
 
+    // 正在休息或未记录结束时间，返回 0
+    // Currently on break or end time not recorded, return 0
     return 0
   }
 
@@ -433,6 +710,9 @@ class StrategyManager: ObservableObject {
     url: URL,
     context: ModelContext
   ) {
+    // State Sync 注记：完成启动/停止后应走统一同步网关，避免分支遗漏副作用。
+    // 深链入口：从 NFC/QR/URL 启动，智能切换会话
+    // Deep link entry: launch from NFC/QR/URL, toggle session smartly
     guard let profileUUID = UUID(uuidString: profileId) else {
       self.errorMessage = "failed to parse profile in tag"
       return
@@ -453,6 +733,7 @@ class StrategyManager: ObservableObject {
       let manualStrategy = getStrategy(id: ManualBlockingStrategy.id)
 
       if let localActiveSession = getActiveSession(context: context) {
+        // 若当前活跃会话禁止后台停止，拒绝切换
         if localActiveSession.blockedProfile.disableBackgroundStops {
           print(
             "profile: \(localActiveSession.blockedProfile.name) has disable background stops enabled, not stopping it"
@@ -497,6 +778,8 @@ class StrategyManager: ObservableObject {
     context: ModelContext,
     durationInMinutes: Int? = nil
   ) {
+    // 后台触发（Shortcuts / App Intents / Widget）启动会话
+    // State Sync 注记：策略启动完成后统一进行快照刷新 + Widget/Live Activity 更新。
     do {
       guard
         let profile = try BlockedProfiles.findProfile(
@@ -517,6 +800,7 @@ class StrategyManager: ObservableObject {
       }
 
       if let duration = durationInMinutes {
+        // 背景定时会话：校验范围并写入 strategyData 供计时策略使用
         if duration < 15 || duration > 1440 {
           self.errorMessage = "Duration must be between 15 and 1440 minutes"
           return
@@ -538,6 +822,7 @@ class StrategyManager: ObservableObject {
           forceStart: true
         )
       } else {
+        // 无时长参数则使用手动策略启动
         let manualStrategy = getStrategy(id: ManualBlockingStrategy.id)
         _ = manualStrategy.startBlocking(
           context: context,
@@ -554,6 +839,8 @@ class StrategyManager: ObservableObject {
     _ profileId: UUID,
     context: ModelContext
   ) {
+    // 后台触发停止（Shortcuts / App Intents / Widget）
+    // State Sync 注记：策略停止完成后统一进行快照刷新 + Widget/Live Activity 更新。
     do {
       guard
         let profile = try BlockedProfiles.findProfile(
@@ -585,6 +872,7 @@ class StrategyManager: ObservableObject {
       }
 
       if profile.disableBackgroundStops {
+        // 配置禁止后台停止，直接返回
         print(
           "profile: \(profile.name) has disable background stops enabled, not stopping it"
         )
@@ -617,9 +905,11 @@ class StrategyManager: ObservableObject {
       return
     }
 
+    // 紧急解锁：绕过当前策略，使用手动策略强制结束
     // Stop the active session using the manual strategy, by passes any other strategy in view
     let manualStrategy = getStrategy(id: ManualBlockingStrategy.id)
     _ = manualStrategy.stopBlocking(
+      // State Sync 注记：完成后应统一调用同步网关，处理快照/Widget/Live Activity 一致性。
       context: context,
       session: activeSession
     )
@@ -698,6 +988,7 @@ class StrategyManager: ObservableObject {
   }
 
   func getStrategy(id: String) -> BlockingStrategy {
+    // 策略工厂：根据 id 取策略，并注入 UI/状态同步回调
     var strategy = StrategyManager.getStrategyFromId(id: id)
 
     strategy.onSessionCreation = { session in
@@ -769,6 +1060,7 @@ class StrategyManager: ObservableObject {
     WidgetCenter.shared.reloadTimelines(ofKind: "ProfileControlWidget")
 
     // Load the active session since the break start time was set in a different thread
+    // 同步 SwiftData 与 DeviceActivity 设置的 break 时间
     loadActiveSession(context: context)
 
     // Update live activity to show break state
@@ -796,6 +1088,7 @@ class StrategyManager: ObservableObject {
     WidgetCenter.shared.reloadTimelines(ofKind: "ProfileControlWidget")
 
     // Load the active session since the break end time was set in a different thread
+    // 同步 SwiftData 与 DeviceActivity 设置的 break 结束时间
     loadActiveSession(context: context)
 
     // Update live activity to show break has ended
@@ -810,7 +1103,7 @@ class StrategyManager: ObservableObject {
   private func getActiveSession(context: ModelContext)
     -> BlockedProfileSession?
   {
-    // Before fetching the active session, sync any schedule sessions
+    // 获取前先同步调度会话（来自 Extension 的快照）
     syncScheduleSessions(context: context)
 
     return
@@ -819,7 +1112,7 @@ class StrategyManager: ObservableObject {
   }
 
   private func syncScheduleSessions(context: ModelContext) {
-    // Process any active scheduled sessions
+    // 同步 Extension 写入的 Schedule 会话快照（活跃 + 已完成）
     if let activeScheduledSession = SharedData.getActiveSharedSession() {
       BlockedProfileSession.upsertSessionFromSnapshot(
         in: context,
@@ -855,6 +1148,7 @@ class StrategyManager: ObservableObject {
       return
     }
 
+    // 根据 profile 的 blockingStrategyId 取策略并启动；如策略返回自定义 UI 则显示
     if let strategyId = definedProfile.blockingStrategyId {
       let strategy = getStrategy(id: strategyId)
       let view = strategy.startBlocking(
@@ -867,6 +1161,9 @@ class StrategyManager: ObservableObject {
         showCustomStrategyView = true
         customStrategyView = customView
       }
+
+      // State Sync 提示：当策略完成启动（包括可能的自定义视图交互后）
+      // 应通过统一网关触发快照刷新与 Widget/Live Activity 更新。
     }
   }
 
@@ -878,6 +1175,7 @@ class StrategyManager: ObservableObject {
       return
     }
 
+    // 使用会话上的策略停止；可能弹出自定义 UI（如 NFC/QR 再验证）
     if let strategyId = session.blockedProfile.blockingStrategyId {
       let strategy = getStrategy(id: strategyId)
       let view = strategy.stopBlocking(context: context, session: session)
@@ -886,6 +1184,9 @@ class StrategyManager: ObservableObject {
         showCustomStrategyView = true
         customStrategyView = customView
       }
+
+      // State Sync 提示：当策略完成停止（包括可能的自定义视图交互后）
+      // 应通过统一网关触发快照刷新与 Widget/Live Activity 更新。
     }
   }
 
@@ -907,7 +1208,7 @@ class StrategyManager: ObservableObject {
   private func scheduleBreakReminder(profile: BlockedProfiles) {
     let profileName = profile.name
 
-    // Schedule a reminder to let the user know that the break is about to end
+    // 提前 1 分钟提醒休息即将结束
     let breakNotificationTimeInSeconds = UInt32((profile.breakTimeInMinutes - 1) * 60)
     if breakNotificationTimeInSeconds > 0 {
       timersUtil.scheduleNotification(
@@ -942,6 +1243,7 @@ class StrategyManager: ObservableObject {
             print(
               "Profile '\(profile.name)' has no schedule but has device activity registered. Removing ghost schedule..."
             )
+            // 清理不存在 schedule 的残留 DeviceActivity
             DeviceActivityCenterUtil.removeScheduleTimerActivities(for: profile)
           } else {
             print("Profile '\(profile.name)' has schedule - activity is valid ✅")
@@ -949,6 +1251,7 @@ class StrategyManager: ObservableObject {
         } else {
           // Profile truly doesn't exist in database
           print("No profile found for activity \(rawValue). Removing orphaned schedule...")
+          // 清理孤儿 DeviceActivity
           DeviceActivityCenterUtil.removeScheduleTimerActivities(for: activity)
         }
       } catch {

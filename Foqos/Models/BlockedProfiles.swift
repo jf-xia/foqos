@@ -4,37 +4,47 @@ import Foundation
 import ManagedSettings
 import SwiftData
 
+// MARK: - BlockedProfiles Model
+// 单个屏蔽配置的完整定义（含策略、提醒、物理解锁、日程、网页过滤等）
+// Full definition of a blocking profile (strategy, reminders, physical unlock, schedule, web filter)
+// ⚠️ 复杂度高：22+ 属性，构造/更新参数众多，建议后续拆分为子模型
 @Model
 class BlockedProfiles {
+  // Core identity & ordering
   @Attribute(.unique) var id: UUID
   var name: String
   var selectedActivity: FamilyActivitySelection
   var createdAt: Date
   var updatedAt: Date
-  var blockingStrategyId: String?
-  var strategyData: Data?
   var order: Int = 0
 
+  // Strategy binding
+  var blockingStrategyId: String?
+  var strategyData: Data?
+
+  // Feature toggles & reminders
   var enableLiveActivity: Bool = false
   var reminderTimeInSeconds: UInt32?
+  var customReminderMessage: String?
   var enableBreaks: Bool = false
   var breakTimeInMinutes: Int = 15
   var enableStrictMode: Bool = false
   var enableAllowMode: Bool = false
   var enableAllowModeDomains: Bool = false
   var enableSafariBlocking: Bool = true
+  var disableBackgroundStops: Bool = false
 
+  // Physical unlock (NFC/QR)
   var physicalUnblockNFCTagId: String?
   var physicalUnblockQRCodeId: String?
 
+  // Web filtering
   var domains: [String]? = nil
 
+  // Schedule config
   var schedule: BlockedProfileSchedule? = nil
 
-  var disableBackgroundStops: Bool = false
-
-  var customReminderMessage: String?
-
+  // Relations
   @Relationship var sessions: [BlockedProfileSession] = []
 
   var activeScheduleTimerActivity: DeviceActivityName? {
@@ -46,6 +56,8 @@ class BlockedProfiles {
       && DeviceActivityCenterUtil.getActiveScheduleTimerActivity(for: self) == nil
   }
 
+  // MARK: - Init
+  // 构造函数参数过多（20+），后续可拆分为设置对象/Builder 以降低耦合
   init(
     id: UUID = UUID(),
     name: String,
@@ -150,6 +162,7 @@ class BlockedProfiles {
     schedule: BlockedProfileSchedule? = nil,
     disableBackgroundStops: Bool? = nil
   ) throws -> BlockedProfiles {
+    // Bulk update with many optionals; consider Builder to reduce callsite churn
     if let newName = name {
       profile.name = newName
     }
@@ -218,7 +231,7 @@ class BlockedProfiles {
     profile.customReminderMessage = customReminderMessage
     profile.updatedAt = Date()
 
-    // Update the snapshot
+    // Update the snapshot for App Group consumers (Widget/Extensions)
     updateSnapshot(for: profile)
 
     try context.save()
@@ -230,22 +243,22 @@ class BlockedProfiles {
     _ profile: BlockedProfiles,
     in context: ModelContext
   ) throws {
-    // First end any active sessions
+    // End any active sessions to keep history consistent
     for session in profile.sessions {
       if session.endTime == nil {
         session.endSession()
       }
     }
 
-    // Remove all sessions first
+    // Remove all sessions records
     for session in profile.sessions {
       context.delete(session)
     }
 
-    // Delete the snapshot
+    // Delete snapshot in SharedData to avoid stale reads by extensions
     deleteSnapshot(for: profile)
 
-    // Remove the schedule restrictions
+    // Remove scheduled DeviceActivity entries
     DeviceActivityCenterUtil.removeScheduleTimerActivities(for: profile)
 
     // Then delete the profile
@@ -362,7 +375,7 @@ class BlockedProfiles {
       profile.schedule = schedule
     }
 
-    // Create the snapshot so extensions can read it immediately
+    // Create snapshot immediately so extensions can read it
     updateSnapshot(for: profile)
 
     context.insert(profile)

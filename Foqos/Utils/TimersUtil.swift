@@ -58,6 +58,7 @@ class TimersUtil {
   }
 
   private static func handleBackgroundProcessingTask(_ task: BGProcessingTask) {
+    // Background wake-up: replay due tasks and reschedule if pending
     let timerUtil = TimersUtil()
 
     // Get all pending tasks from UserDefaults

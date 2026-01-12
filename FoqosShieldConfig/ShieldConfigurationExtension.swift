@@ -10,6 +10,19 @@ import ManagedSettingsUI
 import SwiftUI
 import UIKit
 
+// MARK: - Contract & Notes
+//
+// 职责：
+// - 提供应用/网站被屏蔽时的自定义 Shield 外观（颜色、文案、按钮）。
+// - 仅 UI 配置，不直接改变屏蔽状态或业务逻辑。
+//
+// 约束：
+// - 扩展环境资源受限，取色/文案应快速生成；
+// - 不访问 SwiftData；如需上下文，仅通过 App Group 快照读取轻量主题或标志位（当前实现依赖 ThemeManager）。
+//
+// 与主 App 的契约：
+// - 主 App 负责状态同步（SharedData/Widget/Live Activity），扩展仅负责展示；
+// - 保持 UI 参数纯粹与幂等，不引入策略分支，以免与主流程分岐。
 // Override the functions below to customize the shields used in various situations.
 // The system provides a default appearance for any methods that your subclass doesn't override.
 // Make sure that your class name matches the NSExtensionPrincipalClass in your Info.plist.

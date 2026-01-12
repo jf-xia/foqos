@@ -61,6 +61,7 @@ import SwiftUI
  **注意**：本项目 (Foqos) 采用了类似“Manager 封装”的模式，但在 `DeviceActivityCenterUtil` 中使用了静态方法而非单例，并且针对 `BlockedProfile` 动态生成了 UUID 相关的 Activity Name，这是为了支持用户创建无限多个自定义的屏蔽配置，比单纯的静态枚举更灵活。
  */
 class DeviceActivityCenterUtil {
+  // MARK: - Schedule (daily repeating)
   static func scheduleTimerActivity(for profile: BlockedProfiles) {
     // Only schedule if the schedule is active
     guard let schedule = profile.schedule else { return }
@@ -76,6 +77,7 @@ class DeviceActivityCenterUtil {
       return
     }
 
+    // Build repeating schedule from BlockedProfileSchedule
     let (intervalStart, intervalEnd) = scheduleTimerActivity.getScheduleInterval(from: schedule)
     let deviceActivitySchedule = DeviceActivitySchedule(
       intervalStart: intervalStart,
@@ -93,6 +95,7 @@ class DeviceActivityCenterUtil {
     }
   }
 
+  // MARK: - Break timer (one-shot)
   static func startBreakTimerActivity(for profile: BlockedProfiles) {
     let center = DeviceActivityCenter()
     let breakTimerActivity = BreakTimerActivity()
@@ -116,6 +119,7 @@ class DeviceActivityCenterUtil {
     }
   }
 
+  // MARK: - Strategy timer (one-shot, duration from strategyData)
   static func startStrategyTimerActivity(for profile: BlockedProfiles) {
     guard let strategyData = profile.strategyData else {
       print("No strategy data found for profile: \(profile.id.uuidString)")

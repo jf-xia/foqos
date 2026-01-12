@@ -91,6 +91,36 @@
 
 ---
 
+## 🧭 P0 改造提案（立即执行）
+
+- 状态同步统一网关：在 `StrategyManager` 内设计 `syncState(profile:session:reason:)`（或迁移至 `SessionCoordinator` 后），集中处理以下副作用：
+   - 刷新 App Group 快照（`SharedData` 的 `ProfileSnapshot`/`SessionSnapshot`）。
+   - 触发 `WidgetCenter.reloadTimelines()`。
+   - 更新/结束 `LiveActivity`（ActivityKit）。
+   - 可选：对 `AppBlockerUtil` 的幂等校验（防抖）。
+   - 收益：消除分散调用，防止遗漏与竞态，便于测试与回滚。
+
+- StrategyManager 拆分（最小可行切分）：
+   - `SessionCoordinator`：会话生命周期（start/stop/break、背景与深链入口汇聚、调用“状态同步网关”）。
+   - `TimerCoordinator`：UI计时与策略定时（复用 `TimersUtil`、与 BGTask/通知配合）。
+   - `StrategyRegistry`：策略工厂与依赖注入（避免闭包循环引用，统一回调注入）。
+   - `EmergencyManager`：紧急解锁配额/周期复位逻辑。
+
+- BlockedProfiles 数据模型拆分：
+   - `ProfileSettings`（基础开关与策略绑定）、`PhysicalUnlock`（NFC/QR/Break 配置）、`WebFilter`（域名白/黑名单、Safari 限制）。
+   - 引入 `ProfilesService` + Builder：统一创建/更新/删除，负责 Snapshot 映射与 SwiftData 迁移。
+   - 迁移策略：保持既有字段，新增嵌套类型并逐步切换调用点；提供一次性数据迁移脚本。
+
+- 扩展契约收敛：
+   - `DeviceActivityMonitorExtension`：仅消费快照并触发计时器；避免业务决策；副作用幂等。
+   - `ShieldConfigurationExtension`：纯展示（主题/文案）；不写业务状态。
+   - `WidgetBundle`：只读快照 + 触发意图；主 App 负责刷新与重载。
+
+— 可交付验收标准（第一阶段）：
+- 拆分后核心 API 不变，UI 无感。
+- 任一路径的 start/stop/break 后，Widget/LiveActivity/快照保持一致（手测用例 8 组）。
+- 代码内新增“统一网关”调用点覆盖所有状态变更方法（已标注 TODO）。
+
 ## 📚 生成的文档
 
 已为您生成了 4 份详细的分析文档，位于 `/Users/jack/work/foqos/docs/`：
@@ -364,4 +394,24 @@ docs/
 **建议立即行动**：开始阅读文档，计划第一个两周的工作，然后逐步推进重构。
 
 祝您重构顺利！🚀
+
+
+---
+
+## 📈 当前进展（Option A 增量）
+
+- 已在 `StrategyManager` 关键方法处加入“状态同步统一网关”注释与 TODO，覆盖：
+   - `toggleBlocking` / `toggleBreak` / `startBlocking` / `stopBlocking`
+   - `toggleSessionFromDeeplink` / `startSessionFromBackground` / `stopSessionFromBackground`
+   - `emergencyUnblock`（完成后应统一同步）
+- 为扩展层补充文件头契约说明：
+   - `FoqosDeviceMonitor/DeviceActivityMonitorExtension.swift`
+   - `FoqosShieldConfig/ShieldConfigurationExtension.swift`
+   - `FoqosWidget/FoqosWidgetBundle.swift`
+
+## ▶️ 下一步（本轮执行）
+
+- 设计并落地 `syncState(profile:session:reason:)` 雏形（先集中调用已有快照/Widget/LiveActivity 刷新）。
+- 起草 `ProfilesService` + Builder 与三子模型（`ProfileSettings`/`PhysicalUnlock`/`WebFilter`）API 草案，评估 SwiftData 迁移路径。
+- 将后台/深链/策略自定义视图等状态变更路径统一串联到“同步网关”。
 

@@ -46,6 +46,7 @@ import SwiftUI
   func activateRestrictions(for profile: SharedData.ProfileSnapshot) {
     print("Starting restrictions...")
 
+      // Extract toggles from snapshot (App Group safe data)
     let selection = profile.selectedActivity
     let allowOnlyApps = profile.enableAllowMode
     let allowOnlyDomains = profile.enableAllowModeDomains
@@ -57,6 +58,7 @@ import SwiftUI
     let categoriesTokens = selection.categoryTokens
     let webTokens = selection.webDomainTokens
 
+      // Mode 1: Allow-only apps (block everything except selected apps)
     if allowOnlyApps {
       store.shield.applicationCategories =
         .all(except: applicationTokens)
@@ -66,6 +68,7 @@ import SwiftUI
       }
 
     } else {
+        // Mode 2: Block listed apps/categories (default)
       store.shield.applications = applicationTokens
       store.shield.applicationCategories = .specific(categoriesTokens)
 
@@ -75,6 +78,7 @@ import SwiftUI
       }
     }
 
+      // Web filter: allow-only domains vs block specific domains
     if allowOnlyDomains {
       store.webContent.blockedByFilter = .all(except: domains)
     } else {
@@ -87,6 +91,7 @@ import SwiftUI
   func deactivateRestrictions() {
     print("Stoping restrictions...")
 
+    // Clear all shields and app removal lock
     store.shield.applications = nil
     store.shield.applicationCategories = nil
     store.shield.webDomains = nil
@@ -100,6 +105,7 @@ import SwiftUI
   }
 
   func getWebDomains(from profile: SharedData.ProfileSnapshot) -> Set<WebDomain> {
+    // Convert string domains to WebDomain tokens expected by ManagedSettings
     if let domains = profile.domains {
       return Set(domains.map { WebDomain(domain: $0) })
     }
