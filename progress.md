@@ -258,3 +258,147 @@
 - 保持小步快跑，频繁提交
 - 每完成一个 Phase，与用户同步进展
 - 重构过程中保持应用可运行状态
+
+### Time: 17:00 - 數據模型層深度分析完成
+
+**Action:**
+- 分析所有 Models/ 目錄文件（19 個 Swift 文件）
+- 深入理解 SwiftData 數據模型設計
+- 理解 Strategy Pattern 的完整實現
+- 分析 SharedData 跨進程通信機制
+
+**Result:**
+✅ **核心數據模型**：
+1. **BlockedProfiles** (主數據模型)
+   - 22+ 屬性：策略綁定、功能開關、物理解鎖、網頁過濾、日程配置
+   - 初始化參數 20+，複雜度極高
+   - @Relationship 關聯到 BlockedProfileSession
+   - 包含業務邏輯方法（CRUD、Snapshot 管理）
+
+2. **BlockedProfileSession** (會話記錄)
+   - 簡潔設計：id, tag, profile, startTime, endTime
+   - 支持休息模式：breakStartTime, breakEndTime
+   - 計算屬性：isActive, isBreakActive, duration
+   - 與 SharedData 雙向同步（toSnapshot()）
+
+3. **SharedData** (App Group 通信層)
+   - ProfileSnapshot: 不含 sessions 的配置快照
+   - SessionSnapshot: 不含 profile 對象的會話快照
+   - 基於 UserDefaults(suiteName: "group.com.lxt.foqos.data")
+   - 三個數據存儲：profileSnapshots、activeSharedSession、completedSessionsInSchedular
+
+4. **BlockedProfileSchedule** (日程配置)
+   - 支持多天重複（Weekday 枚舉）
+   - 時間範圍：startHour/Minute, endHour/Minute
+   - 智能判斷：isTodayScheduled(), olderThan15Minutes()
+
+✅ **Strategy Pattern 實現**：
+- BlockingStrategy 協議定義統一接口
+- 9 種策略實現，每個 50-80 行
+- 策略工作流程清晰：用戶操作 → StrategyManager → Strategy → AppBlocker → Session
+
+**Thoughts:**
+
+📌 **數據架構核心洞察**：
+1. **雙寫模式**：SwiftData(主App) + SharedData(Extensions)，需要保證同步
+2. **BlockedProfiles 設計問題**：職責過多，初始化複雜（20+參數）
+3. **Strategy Pattern 優點**：清晰分離，易擴展
+4. **Strategy Pattern 問題**：回調注入方式可能導致內存泄漏
+5. **StrategyManager 職責膨脹**：實際包含 8 個不同的管理器職責
+
+**Next:**
+- Phase 3：分析 Extensions（DeviceActivityMonitor, ShieldConfig, Widget）
+
+---
+
+### Time: 18:00 - 快速調研 Extensions 並制定重構計劃
+
+**Action:**
+- 快速瀏覽 Extensions 層（DeviceActivityMonitor, ShieldConfig, Widget）
+- 分析 App Intents 集成（5個 Intent 文件）
+- 制定完整的重構計劃草案
+- 創建 REFACTORING_PLAN.md
+
+**Result:**
+
+✅ **Extensions 層理解**：
+1. **DeviceActivityMonitorExtension** (~55行)
+   - 職責：響應系統 DeviceActivity 事件
+   - intervalDidStart/End → TimerActivityUtil
+   - 不直接訪問 SwiftData，僅通過 SharedData
+   - 簡潔設計，職責清晰
+
+2. **ShieldConfigurationExtension** (~186行)
+   - 職責：提供 Shield UI 自定義（顏色、文案、emoji）
+   - 隨機但穩定的勵志文案（基於日期 seed）
+   - 訪問 ThemeManager.shared 獲取主題色
+   - 創意有趣的用戶體驗
+
+3. **FoqosWidget** (7個文件)
+   - ProfileControlWidget：主 Widget
+   - FoqosWidgetLiveActivity：動態島
+   - 通過 SharedData 讀取狀態
+   - 通過 App Intents 觸發操作
+
+✅ **App Intents 理解**：
+- **StartProfileIntent**：啟動會話（支持可選計時器參數）
+- **StopProfileIntent**：停止會話
+- **CheckProfileStatusIntent**：查詢狀態
+- **CheckSessionActiveIntent**：查詢會話是否活躍
+- **BlockedProfileEntity**：Profile 實體定義
+
+所有 Intents 都通過 `@Dependency(key: "ModelContainer")` 獲取容器，
+然後直接調用 `StrategyManager.shared` 的後台方法。
+
+✅ **重構計劃草案完成**：
+
+創建了 **REFACTORING_PLAN.md**，包含：
+
+**6 個重構階段**：
+1. 建立測試基礎（1-2週）
+2. 拆分 StrategyManager（2-3週）- 最大工作量
+3. 重構 BlockedProfiles 數據模型（1-2週）
+4. 優化 Strategy 回調機制（1週）
+5. 統一狀態同步機制（1週）
+6. 統一錯誤處理（1週）
+
+**總時間估算**：7-10 週
+
+**核心設計**：
+- SessionCoordinator 作為新的主協調器
+- 拆分出 6 個獨立管理器
+- BlockedProfile 拆分為 7 個子模型
+- 引入 Builder Pattern 簡化初始化
+- Delegate 替代閉包回調
+- StateSyncCoordinator 統一狀態同步
+
+**Thoughts:**
+
+📌 **Extensions 層設計良好**：
+- 職責單一，代碼簡潔
+- 正確使用 SharedData 而非 SwiftData
+- 這部分不需要重構，只需要保證主 App 的同步邏輯可靠
+
+📌 **重構計劃的關鍵洞察**：
+1. **小步快跑**：每個階段都可獨立交付和驗證
+2. **向後兼容**：過渡期保留舊代碼，逐步遷移
+3. **測試先行**：階段1建立測試基礎是成功的關鍵
+4. **風險控制**：數據遷移提供回滾機制
+
+📌 **時間估算合理性**：
+- 7-10週適合這個規模的重構
+- StrategyManager 拆分是最大工作量（2-3週）
+- 如果時間緊張，可以只做 P0（階段1-3），約 4-7週
+
+**Key Metrics:**
+- Extensions 文件：10個（已全部快速瀏覽）
+- App Intents：5個（已理解）
+- 重構計劃：6個階段，詳細設計
+- 新增文檔：REFACTORING_PLAN.md
+
+**Next:**
+- 與用戶討論重構計劃
+- 根據反饋調整優先級和範圍
+- 如獲批准，開始階段1：建立測試基礎
+
+---

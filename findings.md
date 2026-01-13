@@ -333,3 +333,627 @@ DeviceActivityCenter → DeviceActivityMonitorExtension
   - [ARCHITECTURE_OVERVIEW.md](docs/hlbpa/ARCHITECTURE_OVERVIEW.md)
   - [REFACTORING_ANALYSIS.md](docs/REFACTORING_ANALYSIS.md)
   - [PROCESS_FLOWS.md](docs/PROCESS_FLOWS.md)
+
+### 2026-01-13 (17:00) - 數據模型層完整分析
+
+**Context:**
+完成對 Models/ 目錄下所有 19 個文件的深度分析，理解了項目的數據架構和 Strategy Pattern 實現。
+
+**What I found:**
+
+#### 📊 數據模型完整結構圖
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SwiftData Layer (主 App)                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  BlockedProfiles (配置)              BlockedProfileSession   │
+│  ├─ 22+ 屬性                         ├─ id, tag             │
+│  ├─ @Relationship → sessions         ├─ startTime, endTime  │
+│  ├─ blockingStrategyId               ├─ breakStartTime/End  │
+│  ├─ strategyData: Data?              ├─ @Relationship       │
+│  ├─ enableLiveActivity               │   → blockedProfile   │
+│  ├─ physicalUnlockNFCTagId           └─ toSnapshot()        │
+│  ├─ domains: [String]?                                      │
+│  ├─ schedule: BlockedProfileSchedule?                       │
+│  └─ 靜態方法：CRUD + Snapshot 管理                          │
+│                                                               │
+│  BlockedProfileSchedule (日程)                               │
+│  ├─ days: [Weekday]                                         │
+│  ├─ startHour/Minute, endHour/Minute                        │
+│  └─ isTodayScheduled(), olderThan15Minutes()               │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
+                            ↕ 雙寫同步
+┌─────────────────────────────────────────────────────────────┐
+│              SharedData Layer (App Group)                    │
+│              UserDefaults(suiteName: "group...")             │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ProfileSnapshot (配置快照)                                  │
+│  ├─ 與 BlockedProfiles 屬性相同                             │
+│  ├─ 但不包含 sessions 關係                                  │
+│  └─ Codable，可序列化                                       │
+│                                                               │
+│  SessionSnapshot (會話快照)                                  │
+│  ├─ id, tag, blockedProfileId                               │
+│  ├─ startTime, endTime                                      │
+│  ├─ breakStartTime, breakEndTime                            │
+│  └─ Codable，可序列化                                       │
+│                                                               │
+│  存儲位置：                                                  │
+│  ├─ profileSnapshots: [String: ProfileSnapshot]             │
+│  ├─ activeSharedSession: SessionSnapshot?                   │
+│  └─ completedSessionsInSchedular: [SessionSnapshot]         │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
+                            ↓ 被讀取
+┌─────────────────────────────────────────────────────────────┐
+│                  Extensions (獨立進程)                       │
+│  ├─ DeviceActivityMonitor                                   │
+│  ├─ ShieldConfiguration                                     │
+│  └─ FoqosWidget                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 🎯 Strategy Pattern 完整實現
+
+**協議定義** (`BlockingStrategy.swift`):
+```swift
+protocol BlockingStrategy {
+  static var id: String { get }
+  var name: String { get }
+  var description: String { get }
+  var iconType: String { get }
+  var color: Color { get }
+  var hidden: Bool { get }
+  
+  var onSessionCreation: ((SessionStatus) -> Void)? { get set }
+  var onErrorMessage: ((String) -> Void)? { get set }
+  
+  func startBlocking(context: ModelContext, profile: BlockedProfiles, forceStart: Bool?) -> (any View)?
+  func stopBlocking(context: ModelContext, session: BlockedProfileSession) -> (any View)?
+}
+```
+
+**9 種策略實現**:
+
+| 策略類 | ID | 特點 | View 返回 | 行數 |
+|--------|----|----|----------|------|
+| ManualBlockingStrategy | Manual | 純手動開關 | nil | ~57 |
+| NFCBlockingStrategy | NFC | NFC 掃描啟動/停止 | nil | ~70 |
+| NFCManualBlockingStrategy | NFC+Manual | NFC 啟動，手動停止 | nil | ~60 |
+| NFCTimerBlockingStrategy | NFC+Timer | 計時器啟動，NFC 停止 | TimerDurationView | ~80 |
+| QRCodeBlockingStrategy | QR | QR 掃描啟動/停止 | nil | ~75 |
+| QRManualBlockingStrategy | QR+Manual | QR 啟動，手動停止 | nil | ~65 |
+| QRTimerBlockingStrategy | QR+Timer | 計時器啟動，QR 停止 | TimerDurationView | ~82 |
+| ShortcutTimerBlockingStrategy | Shortcut+Timer | 後台計時器專用 | nil | ~55 |
+
+**策略調用流程**:
+```
+1. 用戶點擊 Profile 卡片
+   ↓
+2. StrategyManager.toggleBlocking(profile)
+   ↓
+3. StrategyManager.getStrategy(profile.blockingStrategyId)
+   ├─ 根據 ID 返回對應策略實例
+   ├─ 注入回調：onSessionCreation, onErrorMessage
+   └─ 返回 Strategy
+   ↓
+4. strategy.startBlocking(context, profile, forceStart)
+   ├─ 可能返回 View（如 TimerDurationView）
+   ├─ 調用 AppBlockerUtil.activateRestrictions()
+   ├─ 創建 BlockedProfileSession
+   └─ 觸發 onSessionCreation(.started(session))
+   ↓
+5. StrategyManager 在回調中：
+   ├─ 更新 activeSession
+   ├─ 啟動計時器（如果有）
+   ├─ 同步 SharedData
+   ├─ 刷新 Widget
+   ├─ 啟動 Live Activity
+   └─ 安排提醒通知
+```
+
+#### 🔍 關鍵發現
+
+**1. 雙寫模式的複雜性**
+- **為什麼需要**：Extensions 運行在獨立進程中，無法訪問主 App 的 SwiftData
+- **如何實現**：
+  - BlockedProfiles.updateSnapshot() - 每次更新 Profile 時同步
+  - BlockedProfileSession.toSnapshot() - 將會話轉為快照
+  - SharedData.setSnapshot() - 寫入 App Group UserDefaults
+- **同步點**：
+  1. Profile 創建/更新/刪除
+  2. Session 啟動/停止
+  3. 休息模式啟動/停止
+  4. 策略數據更新
+- **風險**：
+  - 手動同步，容易遺漏
+  - 無事務保證，可能不一致
+  - 建議：引入 SyncCoordinator 統一管理
+
+**2. BlockedProfiles 的職責過重**
+
+當前 BlockedProfiles 包含：
+- ✅ 基礎信息：id, name, createdAt, updatedAt, order
+- ✅ 策略配置：blockingStrategyId, strategyData
+- ✅ 功能開關：enableLiveActivity, enableBreaks, enableStrictMode, enableAllowMode
+- ✅ 提醒設置：reminderTimeInSeconds, customReminderMessage
+- ✅ 物理解鎖：physicalUnblockNFCTagId, physicalUnblockQRCodeId
+- ✅ 網頁過濾：domains, enableAllowModeDomains, enableSafariBlocking
+- ✅ 日程配置：schedule: BlockedProfileSchedule?
+- ✅ 應用選擇：selectedActivity: FamilyActivitySelection
+- ✅ 會話關係：sessions: [BlockedProfileSession]
+- ✅ 業務邏輯：CRUD 靜態方法、Snapshot 管理、DeviceActivity 清理
+
+**建議拆分**：
+```swift
+// 核心模型
+@Model class BlockedProfile {
+  var id: UUID
+  var name: String
+  var order: Int
+  var createdAt: Date
+  var updatedAt: Date
+  var strategy: ProfileStrategy  // 關聯
+  var settings: ProfileSettings  // 關聯
+  @Relationship var sessions: [BlockedProfileSession]
+}
+
+// 策略配置
+@Model class ProfileStrategy {
+  var strategyId: String
+  var strategyData: Data?
+  var physicalUnlock: PhysicalUnlockConfig?  // 關聯
+}
+
+// 功能設置
+@Model class ProfileSettings {
+  var enableLiveActivity: Bool
+  var enableBreaks: Bool
+  var breakTimeInMinutes: Int
+  var enableStrictMode: Bool
+  var reminderConfig: ReminderConfig?  // 關聯
+  var webFilter: WebFilterConfig?  // 關聯
+  var schedule: BlockedProfileSchedule?
+}
+
+// 物理解鎖配置
+@Model class PhysicalUnlockConfig {
+  var nfcTagId: String?
+  var qrCodeId: String?
+}
+
+// 網頁過濾配置
+@Model class WebFilterConfig {
+  var domains: [String]
+  var enableAllowMode: Bool
+  var enableSafariBlocking: Bool
+}
+
+// 提醒配置
+@Model class ReminderConfig {
+  var timeInSeconds: UInt32
+  var customMessage: String?
+}
+```
+
+**3. Strategy Pattern 的回調問題**
+
+當前實現：
+```swift
+// StrategyManager.getStrategy()
+func getStrategy(_ strategyId: String) -> any BlockingStrategy {
+  var strategy = strategies.first { $0.getIdentifier() == strategyId }!
+  
+  // 每次都重新注入回調
+  strategy.onSessionCreation = { [weak self] status in
+    // ... 處理會話創建
+  }
+  strategy.onErrorMessage = { [weak self] message in
+    // ... 處理錯誤
+  }
+  
+  return strategy
+}
+```
+
+**問題**：
+- 每次調用都重新設置回調
+- 協議中 `var onSessionCreation` 不應該是 var，應該是 func
+- 閉包可能捕獲 self，需要 [weak self]
+
+**建議改進**：
+```swift
+// 方案 1: Delegate 模式
+protocol BlockingStrategyDelegate: AnyObject {
+  func strategyDidStart(_ strategy: BlockingStrategy, session: BlockedProfileSession)
+  func strategyDidEnd(_ strategy: BlockingStrategy, profile: BlockedProfiles)
+  func strategyDidError(_ strategy: BlockingStrategy, message: String)
+}
+
+protocol BlockingStrategy {
+  weak var delegate: BlockingStrategyDelegate? { get set }
+  // ...
+}
+
+// 方案 2: Combine Publisher
+protocol BlockingStrategy {
+  var sessionEvents: PassthroughSubject<SessionStatus, Never> { get }
+  var errorEvents: PassthroughSubject<String, Never> { get }
+  // ...
+}
+```
+
+**4. StrategyManager 職責詳細拆解**
+
+當前 StrategyManager（1265 行）實際包含：
+
+| 職責 | 代碼行數估算 | 應獨立為 |
+|------|-------------|----------|
+| 策略註冊表管理 | ~50 | StrategyRegistry |
+| 會話生命週期協調 | ~300 | SessionCoordinator |
+| 計時器管理 | ~150 | TimerManager |
+| 休息模式管理 | ~100 | BreakManager |
+| 緊急解鎖管理 | ~80 | EmergencyUnlockManager |
+| Widget/LiveActivity 同步 | ~100 | StateSyncCoordinator |
+| 深度鏈接處理 | ~50 | DeepLinkHandler |
+| 後台會話管理 | ~150 | BackgroundSessionManager |
+| 錯誤處理和日誌 | ~100 | ErrorHandler |
+| UI 狀態管理 | ~185 | SessionViewModel |
+
+**建議重構架構**：
+```
+┌──────────────────────────────────────────┐
+│         SessionCoordinator               │  (主協調器)
+│  - toggleBlocking()                      │
+│  - startSession() / endSession()         │
+│  - 協調所有子管理器                      │
+└──────────────────────────────────────────┘
+         ↓ 使用
+┌──────────────────────────────────────────┐
+│  StrategyRegistry                        │  (策略註冊)
+│  - register(strategy)                    │
+│  - getStrategy(id)                       │
+└──────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│  TimerManager                            │  (計時器)
+│  - startTimer() / stopTimer()            │
+│  - elapsedTime                           │
+└──────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│  BreakManager                            │  (休息模式)
+│  - startBreak() / endBreak()             │
+│  - scheduleBreakReminder()               │
+└──────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│  StateSyncCoordinator                    │  (狀態同步)
+│  - syncToWidget()                        │
+│  - syncToLiveActivity()                  │
+│  - syncToSharedData()                    │
+└──────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│  EmergencyUnlockManager                  │  (緊急解鎖)
+│  - canUnlock() / emergencyUnlock()       │
+│  - trackQuota()                          │
+└──────────────────────────────────────────┘
+```
+
+**Why it matters:**
+
+1. **數據架構理解是重構的基礎**
+   - 現在完全理解了 SwiftData ↔ SharedData 的雙寫機制
+   - 知道了哪些地方需要同步，哪些是同步風險點
+
+2. **Strategy Pattern 實現良好但有改進空間**
+   - 策略本身設計清晰，每個策略職責單一
+   - 但策略與 StrategyManager 的耦合方式可以優化
+
+3. **BlockedProfiles 是第二大重構目標**
+   - 僅次於 StrategyManager
+   - 需要拆分為多個子模型，降低複雜度
+
+4. **重構優先級已明確**
+   - P0: StrategyManager（1265 行，職責過多）
+   - P0: BlockedProfiles（429 行，屬性過多）
+   - P1: Strategy 回調機制（內存泄漏風險）
+   - P1: 雙寫同步機制（一致性風險）
+
+**Next steps:**
+
+1. ✅ 數據模型層分析完成
+2. 下一步：分析 Extensions（DeviceActivityMonitor, ShieldConfig, Widget）
+3. 理解系統觸發流程
+4. 分析 App Intents 和 Shortcuts 集成
+5. 之後：整理完整的重構計劃
+
+---
+
+### 2026-01-13 (18:00) - Extensions 層調研與重構計劃完成
+
+**Context:**
+完成對 Extensions（3個）和 App Intents（5個）的快速調研，基於完整項目理解制定了詳細的重構計劃。
+
+**What I found:**
+
+#### 🔌 Extensions 層架構
+
+**1. DeviceActivityMonitorExtension**（~55行）
+
+職責：作為系統與主 App 之間的橋樑，響應定時事件。
+
+```swift
+class DeviceActivityMonitorExtension: DeviceActivityMonitor {
+  override func intervalDidStart(for activity: DeviceActivityName) {
+    TimerActivityUtil.startTimerActivity(for: activity)
+  }
+  
+  override func intervalDidEnd(for activity: DeviceActivityName) {
+    TimerActivityUtil.stopTimerActivity(for: activity)
+  }
+}
+```
+
+**優點**：
+- ✅ 極簡設計，只做必要的事
+- ✅ 委託給 TimerActivityUtil 處理邏輯
+- ✅ 正確使用 OSLog 記錄
+- ✅ 已有詳細的中英文注釋
+
+**無需重構**，設計已經很好。
+
+---
+
+**2. ShieldConfigurationExtension**（~186行）
+
+職責：自定義被屏蔽 App/網站的 Shield UI。
+
+**亮點設計**：
+- 🎨 17 條勵志文案庫（emoji + 標題 + 副標題 + 按鈕文字）
+- 🎲 基於日期 + 標題的穩定隨機選擇（同一天同一個 App 看到相同文案）
+- 🎯 訪問 ThemeManager 獲取用戶主題色
+- 📐 動態生成 emoji 圖標
+
+示例文案：
+```
+("🧠", "Brain check", "Do you actually want Twitter… or was it autopilot?", "Return")
+("🎯", "Stay on target", "One small step toward your goal first. Then decide on Twitter.", "Continue")
+```
+
+**優點**：
+- ✅ 創意設計，提升用戶體驗
+- ✅ FNV-1a 哈希算法保證穩定性
+- ✅ 已有詳細注釋
+
+**潛在改進**：
+- 📝 文案庫可以外部配置化（JSON/Plist）
+- 🌍 支持多語言本地化
+
+---
+
+**3. FoqosWidget**（7個文件）
+
+結構：
+```
+FoqosWidget/
+├── FoqosWidgetBundle.swift          # 入口
+├── Providers/
+│   └── ProfileControlProvider.swift # Timeline Provider
+├── Models/
+│   └── ProfileWidgetEntry.swift     # Entry 數據
+├── Views/
+│   └── ProfileWidgetEntryView.swift # UI
+├── Widgets/
+│   ├── ProfileControlWidget.swift   # 主 Widget
+│   └── FoqosWidgetLiveActivity.swift # 動態島
+└── ProfileSelectionIntent.swift     # Widget 配置
+```
+
+**數據流**：
+```
+SharedData (App Group)
+    ↓
+ProfileControlProvider.timeline()
+    ↓
+ProfileWidgetEntry
+    ↓
+ProfileWidgetEntryView
+    ↓
+Widget UI
+```
+
+**操作觸發**：
+```
+Widget 按鈕點擊
+    ↓
+App Intent (StartProfileIntent/StopProfileIntent)
+    ↓
+StrategyManager.startSessionFromBackground()
+    ↓
+更新 SharedData
+    ↓
+WidgetCenter.reloadTimelines()
+```
+
+**優點**：
+- ✅ 標準 Widget 架構
+- ✅ 正確使用 App Group 共享數據
+- ✅ 通過 App Intents 觸發操作
+
+**無需大規模重構**，但需要確保主 App 的狀態同步可靠。
+
+---
+
+#### 📱 App Intents 集成
+
+**5 個 Intents**：
+
+| Intent | 參數 | 作用 | 調用點 |
+|--------|------|------|--------|
+| StartProfileIntent | profile, durationInMinutes? | 啟動會話 | Shortcuts, Widget |
+| StopProfileIntent | profile | 停止會話 | Shortcuts, Widget |
+| CheckProfileStatusIntent | profile | 查詢狀態 | Shortcuts |
+| CheckSessionActiveIntent | - | 查詢是否有活躍會話 | Shortcuts |
+| BlockedProfileEntity | - | Profile 實體定義 | 被其他 Intents 引用 |
+
+**實現模式**（統一）：
+```swift
+struct StartProfileIntent: AppIntent {
+  @Dependency(key: "ModelContainer")
+  private var modelContainer: ModelContainer
+  
+  @MainActor
+  func perform() async throws -> some IntentResult {
+    StrategyManager.shared.startSessionFromBackground(
+      profile.id,
+      context: modelContainer.mainContext,
+      durationInMinutes: durationInMinutes
+    )
+    return .result()
+  }
+}
+```
+
+**發現**：
+1. ✅ 正確使用 @Dependency 獲取 ModelContainer
+2. ✅ 所有邏輯委託給 StrategyManager
+3. ⚠️ 直接依賴 StrategyManager.shared，重構時需要保持兼容
+4. ⚠️ 錯誤處理簡單（只有 throws，無具體錯誤類型）
+
+**重構後的 Intents**：
+```swift
+struct StartProfileIntent: AppIntent {
+  @Dependency(key: "SessionCoordinator")  // 新的協調器
+  private var coordinator: SessionCoordinator
+  
+  @MainActor
+  func perform() async throws -> some IntentResult {
+    do {
+      try coordinator.startSessionFromBackground(
+        profileId: profile.id,
+        durationInMinutes: durationInMinutes
+      )
+      return .result()
+    } catch let error as FoqosError {
+      // 統一錯誤處理
+      throw error
+    }
+  }
+}
+```
+
+---
+
+#### 📋 完整重構計劃
+
+**已創建**：`REFACTORING_PLAN.md`（完整設計文檔）
+
+**6 個階段，7-10 週時間表**：
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ 階段 1：建立測試基礎 (1-2週)                             │
+│ - 創建 Unit Test Target                                 │
+│ - 設置 Mock 框架                                        │
+│ - 編寫核心功能集成測試                                   │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│ 階段 2：拆分 StrategyManager (2-3週) ⭐ 最大工作量       │
+│ - 設計新架構（6個獨立管理器）                            │
+│ - 逐步遷移調用方                                        │
+│ - 保持向後兼容                                          │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│ 階段 3：重構 BlockedProfiles (1-2週)                    │
+│ - 拆分為 7 個子模型                                     │
+│ - 數據遷移腳本                                          │
+│ - 引入 Builder Pattern                                 │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│ 階段 4-6：優化細節 (3週)                                │
+│ - Strategy 回調改用 Delegate                           │
+│ - 統一狀態同步機制                                      │
+│ - 統一錯誤處理和日誌                                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+**新架構設計**（階段2的核心）：
+
+```
+SessionCoordinator (主協調器)
+    ├── StrategyRegistry (策略註冊表)
+    ├── TimerManager (計時器)
+    ├── BreakManager (休息模式)
+    ├── StateSyncCoordinator (狀態同步)
+    ├── EmergencyUnlockManager (緊急解鎖)
+    └── BackgroundSessionManager (後台會話)
+```
+
+**數據模型重構**（階段3的核心）：
+
+```
+BlockedProfile (核心)
+    ├── ProfileStrategy (策略配置)
+    │   └── PhysicalUnlockConfig (物理解鎖)
+    └── ProfileSettings (功能設置)
+        ├── ReminderConfig (提醒)
+        ├── WebFilterConfig (網頁過濾)
+        └── BlockedProfileSchedule (日程)
+```
+
+---
+
+#### 🎯 重構優先級矩陣
+
+| 問題 | 複雜度 | 影響面 | 優先級 | 階段 |
+|------|--------|--------|--------|------|
+| StrategyManager 職責過多 | 極高 | 全局 | 🔴 P0 | 2 |
+| BlockedProfiles 屬性過多 | 高 | 數據層 | 🔴 P0 | 3 |
+| 缺乏測試基礎 | 中 | 重構風險 | 🔴 P0 | 1 |
+| 雙寫同步機制脆弱 | 中 | 數據一致性 | 🟡 P1 | 5 |
+| Strategy 回調風險 | 低 | 內存 | 🟡 P1 | 4 |
+| 錯誤處理不統一 | 低 | 可維護性 | 🟢 P2 | 6 |
+
+**如果時間緊張，可以只做階段 1-3（P0 問題），約 4-7 週。**
+
+---
+
+**Why it matters:**
+
+1. **完整項目理解已建立**
+   - 數據層（Models）✅
+   - 業務邏輯層（Utils）✅
+   - 系統集成層（Extensions）✅
+   - UI層（Views/Components）- 可選
+   - 現在可以自信地開始重構
+
+2. **重構計劃務實且可執行**
+   - 分階段交付，每階段有驗收標準
+   - 小步快跑，降低風險
+   - 向後兼容，不破壞現有功能
+   - 測試先行，保證質量
+
+3. **Extensions 層設計良好**
+   - 不需要重構，節省時間
+   - 驗證了主 App 的架構問題確實存在
+   - 證明簡潔設計是可行的
+
+4. **時間估算保守且合理**
+   - 7-10週適合這個規模
+   - 留有緩衝空間
+   - 可根據實際情況調整
+
+**Next steps:**
+
+1. ✅ 項目分析完成（Phase 1-3）
+2. ✅ 重構計劃制定完成（Phase 4-5）
+3. ⏭️ 與用戶討論計劃（Phase 6）
+4. ⏭️ 根據反饋調整（Phase 6）
+5. ⏭️ 開始執行重構（Phase 7）
+
+---
