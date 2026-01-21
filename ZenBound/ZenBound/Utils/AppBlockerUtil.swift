@@ -1,159 +1,115 @@
-//
-//  AppBlockerUtil.swift
-//  ZenBound
-//
-//  Screen Time 限制管理工具
-//  封装 ManagedSettingsStore，是应用层与 Apple Screen Time API 之间的桥梁
-//
-
-import FamilyControls
 import ManagedSettings
 import SwiftUI
 
-/// 应用屏蔽工具类
-/// 负责将业务层的屏蔽配置转化为系统底层的实际限制指令
-class AppBlockerUtil {
-    /// ManagedSettingsStore 实例，用于存储和管理屏蔽设置
-    let store = ManagedSettingsStore(
-        named: ManagedSettingsStore.Name("zenBoundAppRestrictions")
-    )
-    
-    // MARK: - 专注组限制
-    
-    /// 激活专注组限制
-    /// - Parameter group: 专注组配置快照
-    func activateFocusRestrictions(for group: SharedData.FocusGroupSnapshot) {
-        print("[ZenBound] Starting focus restrictions for: \(group.name)")
-        
-        let selection = group.selectedActivity
-        let applicationTokens = selection.applicationTokens
-        let categoriesTokens = selection.categoryTokens
-        let webTokens = selection.webDomainTokens
-        
-        if group.blockAllApps {
-            // 屏蔽所有应用（除了选中的）
-            store.shield.applicationCategories = .all(except: applicationTokens)
-            store.shield.webDomainCategories = .all(except: webTokens)
-        } else {
-            // 仅屏蔽选中的应用
-            store.shield.applications = applicationTokens
-            store.shield.applicationCategories = .specific(categoriesTokens)
-            store.shield.webDomainCategories = .specific(categoriesTokens)
-            store.shield.webDomains = webTokens
+/**
+ Screen Time 限制管理工具 / 核心屏蔽逻辑控制器
+
+ 1. 功能说明
+    该类封装了 `ManagedSettingsStore`，是应用层与 Apple Screen Time API (ManagedSettings) 之间的主要桥梁。
+    它负责将业务层的“屏蔽配置”（`SharedData.ProfileSnapshot`）转化为系统底层的实际限制指令，包括：
+    - 应用屏蔽 (Shield Applications)
+    - 网页屏蔽 (Web Content Filter)
+    - 严格模式/防卸载 (Deny App Removal)
+    - 白名单/黑名单模式切换
+
+ 2. 项目内使用方式
+    - **核心依赖**: 被所有 `BlockingStrategy`（如 Manual, NFC, QR）和 `DeviceActivityMonitorExtension` 实例化并持有。
+    - **调用时机**: 当专注会话开始 (`activateRestrictions`) 或结束 (`deactivateRestrictions`) 时调用。
+    - **数据跨层**: 接受 `SharedData.ProfileSnapshot` 作为参数，这是一种设计用于在 App Group 间共享的轻量级数据结构（App 与 Extension 共享）。
+
+ 3. 项目内代码示例
+    ```swift
+    // 在策略类 (如 ManualBlockingStrategy) 中使用:
+    class ManualStrategy {
+        private let appBlocker = AppBlockerUtil()
+
+        func startSession(profile: BlockedProfiles) {
+            // 1. 将 SwiftData 模型转为快照
+            let snapshot = BlockedProfiles.getSnapshot(for: profile)
+            
+            // 2. 激活限制
+            appBlocker.activateRestrictions(for: snapshot)
         }
-        
-        // 禁止应用切换（如果启用）
-        if group.blockAppSwitching {
-            store.application.denyAppRemoval = true
+
+        func stopSession() {
+            // 3. 解除限制
+            appBlocker.deactivateRestrictions()
         }
     }
-    
-    // MARK: - 严格组限制
-    
-    /// 激活严格组限制
-    /// - Parameter group: 严格组配置快照
-    func activateStrictRestrictions(for group: SharedData.StrictGroupSnapshot) {
-        print("[ZenBound] Starting strict restrictions for: \(group.name)")
-        
-        let selection = group.selectedActivity
-        let applicationTokens = selection.applicationTokens
-        let categoriesTokens = selection.categoryTokens
-        let webTokens = selection.webDomainTokens
-        
-        // 屏蔽选中的应用
-        store.shield.applications = applicationTokens
-        store.shield.applicationCategories = .specific(categoriesTokens)
-        store.shield.webDomains = webTokens
+    ```
+ */
+ class AppBlockerUtil {
+  let store = ManagedSettingsStore(
+    named: ManagedSettingsStore.Name("foqosAppRestrictions")
+  )
+
+  func activateRestrictions(for profile: SharedData.ProfileSnapshot) {
+    print("Starting restrictions...")
+
+      // Extract toggles from snapshot (App Group safe data)
+    let selection = profile.selectedActivity
+    let allowOnlyApps = profile.enableAllowMode
+    let allowOnlyDomains = profile.enableAllowModeDomains
+    let strict = profile.enableStrictMode
+    let enableSafariBlocking = profile.enableSafariBlocking
+    let domains = getWebDomains(from: profile)
+
+    let applicationTokens = selection.applicationTokens
+    let categoriesTokens = selection.categoryTokens
+    let webTokens = selection.webDomainTokens
+
+      // Mode 1: Allow-only apps (block everything except selected apps)
+    if allowOnlyApps {
+      store.shield.applicationCategories =
+        .all(except: applicationTokens)
+
+      if enableSafariBlocking {
+        store.shield.webDomainCategories = .all(except: webTokens)
+      }
+
+    } else {
+        // Mode 2: Block listed apps/categories (default)
+      store.shield.applications = applicationTokens
+      store.shield.applicationCategories = .specific(categoriesTokens)
+
+      if enableSafariBlocking {
         store.shield.webDomainCategories = .specific(categoriesTokens)
-        
-        // 网页过滤
-        let blockedDomains = Set(group.blockedWebsites.map { WebDomain(domain: $0) })
-        if !blockedDomains.isEmpty {
-            store.webContent.blockedByFilter = .specific(blockedDomains)
-        }
-        
-        // 禁止安装新应用（如果启用）
-        if group.blockAppStoreInstall {
-            store.application.denyAppInstallation = true
-        }
-    }
-    
-    // MARK: - 娱乐组限制
-    
-    /// 激活娱乐组限制
-    /// - Parameter group: 娱乐组配置快照
-    func activateEntertainmentRestrictions(for group: SharedData.EntertainmentGroupSnapshot) {
-        print("[ZenBound] Starting entertainment restrictions for: \(group.name)")
-        
-        let selection = group.selectedActivity
-        let applicationTokens = selection.applicationTokens
-        let categoriesTokens = selection.categoryTokens
-        let webTokens = selection.webDomainTokens
-        
-        // 屏蔽选中的娱乐应用
-        store.shield.applications = applicationTokens
-        store.shield.applicationCategories = .specific(categoriesTokens)
         store.shield.webDomains = webTokens
-        store.shield.webDomainCategories = .specific(categoriesTokens)
-        
-        // 休息时屏蔽所有应用
-        if group.enableRestBlock && group.blockAllAppsWhenRest {
-            store.shield.applicationCategories = .all(except: applicationTokens)
-        }
+      }
     }
-    
-    // MARK: - 通用方法
-    
-    /// 解除所有限制
-    func deactivateAllRestrictions() {
-        print("[ZenBound] Stopping all restrictions...")
-        
-        // 清除所有屏蔽
-        store.shield.applications = nil
-        store.shield.applicationCategories = nil
-        store.shield.webDomains = nil
-        store.shield.webDomainCategories = nil
-        
-        // 清除应用限制
-        store.application.denyAppRemoval = false
-        store.application.denyAppInstallation = false
-        
-        // 清除网页过滤
-        store.webContent.blockedByFilter = nil
-        
-        // 清除所有设置
-        store.clearAllSettings()
+
+      // Web filter: allow-only domains vs block specific domains
+    if allowOnlyDomains {
+      store.webContent.blockedByFilter = .all(except: domains)
+    } else {
+      store.webContent.blockedByFilter = .specific(domains)
     }
-    
-    /// 临时解除限制（用于紧急解锁或休息时间）
-    func temporarilyDeactivate() {
-        print("[ZenBound] Temporarily deactivating restrictions...")
-        
-        store.shield.applications = nil
-        store.shield.applicationCategories = nil
-        store.shield.webDomains = nil
-        store.shield.webDomainCategories = nil
+
+    store.application.denyAppRemoval = strict
+  }
+
+  func deactivateRestrictions() {
+    print("Stoping restrictions...")
+
+    // Clear all shields and app removal lock
+    store.shield.applications = nil
+    store.shield.applicationCategories = nil
+    store.shield.webDomains = nil
+    store.shield.webDomainCategories = nil
+
+    store.application.denyAppRemoval = false
+
+    store.webContent.blockedByFilter = nil
+
+    store.clearAllSettings()
+  }
+
+  func getWebDomains(from profile: SharedData.ProfileSnapshot) -> Set<WebDomain> {
+    // Convert string domains to WebDomain tokens expected by ManagedSettings
+    if let domains = profile.domains {
+      return Set(domains.map { WebDomain(domain: $0) })
     }
-    
-    /// 恢复之前的限制
-    /// - Parameter groupType: 应用组类型
-    /// - Parameter groupId: 应用组ID
-    func restoreRestrictions(groupType: SharedData.GroupType, groupId: String) {
-        print("[ZenBound] Restoring restrictions for group: \(groupId)")
-        
-        switch groupType {
-        case .focus:
-            if let group = SharedData.getFocusGroup(id: groupId) {
-                activateFocusRestrictions(for: group)
-            }
-        case .strict:
-            if let group = SharedData.getStrictGroup(id: groupId) {
-                activateStrictRestrictions(for: group)
-            }
-        case .entertainment:
-            if let group = SharedData.getEntertainmentGroup(id: groupId) {
-                activateEntertainmentRestrictions(for: group)
-            }
-        }
-    }
+
+    return []
+  }
 }

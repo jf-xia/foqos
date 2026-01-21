@@ -1,179 +1,185 @@
 //
 //  ShieldConfigurationExtension.swift
-//  shieldConfig
+//  FoqosShieldConfig
 //
-//  Created by Jack on 21/1/2026.
+//  Created by Ali Waseem on 2025-08-11.
 //
 
 import ManagedSettings
 import ManagedSettingsUI
+import SwiftUI
 import UIKit
 
-// MARK: - App Group Constants
-private let appGroupID = "group.dev.zenbound.data"
-
-// MARK: - SharedData Keys
-private enum SharedDataKey {
-    static let shieldConfig = "shieldConfigSnapshot"
-    static let activeSession = "activeSessionSnapshot"
-}
-
+// MARK: - Contract & Notes
+//
+// 职责：
+// - 提供应用/网站被屏蔽时的自定义 Shield 外观（颜色、文案、按钮）。
+// - 仅 UI 配置，不直接改变屏蔽状态或业务逻辑。
+//
+// 约束：
+// - 扩展环境资源受限，取色/文案应快速生成；
+// - 不访问 SwiftData；如需上下文，仅通过 App Group 快照读取轻量主题或标志位（当前实现依赖 ThemeManager）。
+//
+// 与主 App 的契约：
+// - 主 App 负责状态同步（SharedData/Widget/Live Activity），扩展仅负责展示；
+// - 保持 UI 参数纯粹与幂等，不引入策略分支，以免与主流程分岐。
 // Override the functions below to customize the shields used in various situations.
 // The system provides a default appearance for any methods that your subclass doesn't override.
 // Make sure that your class name matches the NSExtensionPrincipalClass in your Info.plist.
 class ShieldConfigurationExtension: ShieldConfigurationDataSource {
-    
-    private var userDefaults: UserDefaults? {
-        UserDefaults(suiteName: appGroupID)
+  override func configuration(shielding application: Application) -> ShieldConfiguration {
+    return createCustomShieldConfiguration(
+      for: .app, title: application.localizedDisplayName ?? "App")
+  }
+
+  override func configuration(shielding application: Application, in category: ActivityCategory)
+    -> ShieldConfiguration
+  {
+    return createCustomShieldConfiguration(
+      for: .app, title: application.localizedDisplayName ?? "App")
+  }
+
+  override func configuration(shielding webDomain: WebDomain) -> ShieldConfiguration {
+    return createCustomShieldConfiguration(for: .website, title: webDomain.domain ?? "Website")
+  }
+
+  override func configuration(shielding webDomain: WebDomain, in category: ActivityCategory)
+    -> ShieldConfiguration
+  {
+    return createCustomShieldConfiguration(for: .website, title: webDomain.domain ?? "Website")
+  }
+
+  private func createCustomShieldConfiguration(for type: BlockedContentType, title: String)
+    -> ShieldConfiguration
+  {
+    // Get user's selected theme color
+    let brandColor = UIColor(ThemeManager.shared.themeColor)
+
+    // Get random fun message
+    let randomMessage = getFunBlockMessage(for: type, title: title)
+
+    // Emoji “icon” (rendered to an image so it works with ShieldConfiguration.icon)
+    let emojiIcon = makeEmojiIcon(randomMessage.emoji, size: 96)
+
+    return ShieldConfiguration(
+      backgroundBlurStyle: nil,
+      backgroundColor: brandColor,
+      icon: emojiIcon,
+      title: ShieldConfiguration.Label(
+        text: randomMessage.title,
+        color: .white
+      ),
+      subtitle: ShieldConfiguration.Label(
+        text: randomMessage.subtitle,
+        color: UIColor.white.withAlphaComponent(0.88)
+      ),
+      primaryButtonLabel: ShieldConfiguration.Label(
+        text: randomMessage.buttonText,
+        color: .black
+      ),
+      primaryButtonBackgroundColor: .white,
+      secondaryButtonLabel: nil
+    )
+  }
+
+  private func getFunBlockMessage(for _: BlockedContentType, title: String) -> (
+    emoji: String, title: String, subtitle: String, buttonText: String
+  ) {
+    typealias FunMessage = (emoji: String, title: String, subtitle: String, buttonText: String)
+
+    // Curated message "bundles" where the emoji and copy are designed to match.
+    // This keeps things fun without feeling chaotic or mismatched.
+    let messages: [FunMessage] = [
+      ("📵", "Not right now", "\(title) can wait. You’re choosing your time on purpose.", "Back"),
+      ("🧠", "Brain check", "Do you actually want \(title)… or was it autopilot?", "Return"),
+      (
+        "🎯", "Stay on target", "One small step toward your goal first. Then decide on \(title).",
+        "Continue"
+      ),
+      (
+        "⏳", "Give it 2 minutes", "Finish the next tiny thing. \(title) will still be there after.",
+        "Keep going"
+      ),
+      ("🛡️", "Shield up", "Focus is protected. You’ve got this.", "Onward"),
+      ("🔒", "Locked in", "This block is temporary. Your momentum isn’t.", "Stay here"),
+      ("🧱", "Boundary set", "You made a plan. This is you sticking to it.", "Back"),
+      ("✨", "Glow mode", "You’re building attention — that’s the real flex.", "Nice"),
+      ("🫶", "Be kind to you", "No shame. Just a gentle nudge back to what matters.", "Got it"),
+      (
+        "🌐", "Not this detour", "\(title) isn’t part of the mission right now.", "Return"
+      ),
+      (
+        "🕸️", "Avoid the trap", "One click turns into twenty. Let’s not.", "Back"
+      ),
+      ("🛡️", "Protected zone", "We’re keeping your attention where you wanted it.", "Got it"),
+      ("🔒", "Locked in", "This is a temporary block for a long-term win.", "Return"),
+      (
+        "🎯", "Back to the task", "Close the detour. Finish the task. Then come back on purpose.",
+        "Back to work"
+      ),
+      (
+        "⏳", "Protect the time", "A few minutes can become an hour. Keep your momentum.",
+        "Stay focused"
+      ),
+      ("📵", "Not missing anything", "You’re not missing anything important right now.", "Back"),
+      ("✨", "Momentum mode", "Tiny choices like this add up fast.", "Continue"),
+    ]
+    guard !messages.isEmpty else { return ("🧠", "Quick pause", "Not right now.", "Back") }
+
+    let comps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+    let dayKey =
+      (comps.year ?? 0) * 10_000
+      + (comps.month ?? 0) * 100
+      + (comps.day ?? 0)
+
+    let seed = Int(stableSeed(for: title) % UInt64(Int.max)) ^ dayKey
+    let idx = abs(seed) % messages.count
+
+    return messages[idx]
+  }
+
+  private func stableSeed(for title: String) -> UInt64 {
+    // FNV-1a 64-bit over unicode scalars (deterministic across runs/devices).
+    var hash: UInt64 = 14_695_981_039_346_656_037
+    for scalar in title.unicodeScalars {
+      hash ^= UInt64(scalar.value)
+      hash &*= 1_099_511_628_211
     }
-    
-    private var currentConfig: ShieldConfigSnapshot? {
-        guard let data = userDefaults?.data(forKey: SharedDataKey.shieldConfig),
-              let config = try? JSONDecoder().decode(ShieldConfigSnapshot.self, from: data) else {
-            return nil
-        }
-        return config
+    return hash
+  }
+
+  private func makeEmojiIcon(_ emoji: String, size: CGFloat) -> UIImage? {
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+    return renderer.image { _ in
+      let paragraph = NSMutableParagraphStyle()
+      paragraph.alignment = .center
+
+      let attributes: [NSAttributedString.Key: Any] = [
+        .font: UIFont.systemFont(ofSize: size * 0.78),
+        .paragraphStyle: paragraph,
+      ]
+
+      let rect = CGRect(x: 0, y: 0, width: size, height: size)
+      let attributed = NSAttributedString(string: emoji, attributes: attributes)
+      let bounds = attributed.boundingRect(
+        with: rect.size,
+        options: [.usesLineFragmentOrigin, .usesFontLeading],
+        context: nil
+      )
+
+      // Vertically center emoji
+      let drawRect = CGRect(
+        x: rect.minX,
+        y: rect.minY + (rect.height - bounds.height) / 2,
+        width: rect.width,
+        height: bounds.height
+      )
+      attributed.draw(in: drawRect)
     }
-    
-    private var sessionType: String? {
-        guard let data = userDefaults?.data(forKey: SharedDataKey.activeSession),
-              let snapshot = try? JSONDecoder().decode(SessionSnapshot.self, from: data) else {
-            return nil
-        }
-        return snapshot.groupType
-    }
-    
-    override func configuration(shielding application: Application) -> ShieldConfiguration {
-        return buildConfiguration()
-    }
-    
-    override func configuration(shielding application: Application, in category: ActivityCategory) -> ShieldConfiguration {
-        return buildConfiguration()
-    }
-    
-    override func configuration(shielding webDomain: WebDomain) -> ShieldConfiguration {
-        return buildConfiguration()
-    }
-    
-    override func configuration(shielding webDomain: WebDomain, in category: ActivityCategory) -> ShieldConfiguration {
-        return buildConfiguration()
-    }
-    
-    // MARK: - Build Configuration
-    
-    private func buildConfiguration() -> ShieldConfiguration {
-        let config = currentConfig
-        let type = sessionType ?? "focus"
-        
-        // Default values based on session type
-        let (defaultTitle, defaultSubtitle, defaultEmoji, defaultColor) = defaultValues(for: type)
-        
-        let title = config?.title ?? defaultTitle
-        let subtitle = config?.message ?? defaultSubtitle
-        let emoji = config?.emoji ?? defaultEmoji
-        let color = hexToUIColor(config?.colorHex ?? defaultColor)
-        
-        // Create icon from emoji
-        let icon = createEmojiIcon(emoji)
-        
-        return ShieldConfiguration(
-            backgroundBlurStyle: .systemMaterialDark,
-            backgroundColor: color.withAlphaComponent(0.9),
-            icon: icon,
-            title: ShieldConfiguration.Label(text: title, color: .white),
-            subtitle: ShieldConfiguration.Label(text: subtitle, color: .white.withAlphaComponent(0.8)),
-            primaryButtonLabel: ShieldConfiguration.Label(text: "打开 ZenBound", color: color),
-            primaryButtonBackgroundColor: .white,
-            secondaryButtonLabel: ShieldConfiguration.Label(text: buttonLabel(for: type), color: .white.withAlphaComponent(0.7))
-        )
-    }
-    
-    // MARK: - Helpers
-    
-    private func defaultValues(for type: String) -> (String, String, String, String) {
-        switch type {
-        case "focus":
-            return ("专注时间 🎯", "保持专注，你可以的！", "🎯", "#4A90D9")
-        case "strict":
-            return ("时间限制 ⏰", "今日使用时间已达上限", "⏰", "#E74C3C")
-        case "entertainment":
-            return ("休息一下 🌟", "该休息眼睛了", "🌟", "#27AE60")
-        default:
-            return ("ZenBound", "专注当下", "🧘", "#9B59B6")
-        }
-    }
-    
-    private func buttonLabel(for type: String) -> String {
-        switch type {
-        case "focus":
-            return "继续专注"
-        case "strict":
-            return "紧急解锁"
-        case "entertainment":
-            return "延长时间"
-        default:
-            return "稍后再说"
-        }
-    }
-    
-    private func hexToUIColor(_ hex: String) -> UIColor {
-        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
-        
-        var rgb: UInt64 = 0
-        Scanner(string: hexSanitized).scanHexInt64(&rgb)
-        
-        return UIColor(
-            red: CGFloat((rgb & 0xFF0000) >> 16) / 255.0,
-            green: CGFloat((rgb & 0x00FF00) >> 8) / 255.0,
-            blue: CGFloat(rgb & 0x0000FF) / 255.0,
-            alpha: 1.0
-        )
-    }
-    
-    private func createEmojiIcon(_ emoji: String) -> UIImage? {
-        let size = CGSize(width: 60, height: 60)
-        UIGraphicsBeginImageContextWithOptions(size, false, 0)
-        
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .center
-        
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 40),
-            .paragraphStyle: paragraphStyle
-        ]
-        
-        let textSize = emoji.size(withAttributes: attributes)
-        let rect = CGRect(
-            x: (size.width - textSize.width) / 2,
-            y: (size.height - textSize.height) / 2,
-            width: textSize.width,
-            height: textSize.height
-        )
-        
-        emoji.draw(in: rect, withAttributes: attributes)
-        
-        let image = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
-        
-        return image
-    }
+  }
 }
 
-// MARK: - Snapshot Models
-
-private struct ShieldConfigSnapshot: Codable {
-    var title: String
-    var message: String
-    var colorHex: String
-    var emoji: String
-}
-
-private struct SessionSnapshot: Codable {
-    var groupId: String
-    var groupType: String
-    var activitySelectionBase64: String
-    var startTime: Date
-    var completedPomodoros: Int
-    var totalPomodoros: Int
+enum BlockedContentType {
+  case app
+  case website
 }

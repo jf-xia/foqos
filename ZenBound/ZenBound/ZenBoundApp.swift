@@ -5,6 +5,7 @@
 //  屏幕时间管理应用 - 宠物猫养成 + 番茄钟 + 任务系统
 //
 
+import BackgroundTasks
 import SwiftData
 import SwiftUI
 
@@ -12,16 +13,8 @@ import SwiftUI
 private let container: ModelContainer = {
     do {
         return try ModelContainer(
-            for: FocusGroup.self,
-                 StrictGroup.self,
-                 EntertainmentGroup.self,
-                 GroupSchedule.self,
-                 FocusSession.self,
-                 StrictSession.self,
-                 EntertainmentSession.self,
-                 Pet.self,
-                 ZenTask.self,
-                 Achievement.self
+            for: BlockedProfileSession.self,
+            BlockedProfiles.self
         )
     } catch {
         fatalError("Couldn't create ModelContainer: \(error)")
@@ -30,112 +23,30 @@ private let container: ModelContainer = {
 
 @main
 struct ZenBoundApp: App {
-    // MARK: - Environment Objects
-    
-    /// 权限授权管理器
-    @StateObject private var requestAuthorizer = RequestAuthorizer()
-    
-    /// 会话管理器 (Singleton)
-    @StateObject private var sessionManager = SessionManager.shared
-    
-    /// 宠物管理器 (Singleton)
-    @StateObject private var petManager = PetManager.shared
-    
-    /// 任务管理器 (Singleton)
-    @StateObject private var taskManager = TaskManager.shared
-    
-    /// 成就管理器 (Singleton)
-    @StateObject private var achievementManager = AchievementManager.shared
-    
-    // MARK: - App Storage
-    @AppStorage("showIntroScreen") private var showIntroScreen = true
-    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    
+  @StateObject private var requestAuthorizer = RequestAuthorizer()
+  @StateObject private var startegyManager = StrategyManager.shared
+  init() {
+    // 注册后台任务标识符，用于计时器结束后的通知
+    // Register background task identifiers for timer completion notifications
+    // 📍 相关配置：Info.plist -> BGTaskSchedulerPermittedIdentifiers
+    TimersUtil.registerBackgroundTasks()
+
+    // 创建异步依赖闭包，返回 ModelContainer
+    // Create async dependency closure that returns ModelContainer
+    // @Sendable: 闭包可以在并发上下文中安全传递
+    // @MainActor: 确保 container 访问在主线程
+    let asyncDependency: @Sendable () async -> (ModelContainer) = {
+      @MainActor in
+      return container
+    }
+  }
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(requestAuthorizer)
-                .environmentObject(sessionManager)
-                .environmentObject(petManager)
-                .environmentObject(taskManager)
-                .environmentObject(achievementManager)
-                .onAppear {
-                    initializeApp()
-                }
+            // todo
+            .environmentObject(requestAuthorizer)      // 权限管理 / Authorization
+            .environmentObject(startegyManager)        // 策略管理 / Strategy (核心)
         }
         .modelContainer(container)
     }
     
-    // MARK: - Initialization
-    
-    private func initializeApp() {
-        // 检查授权状态
-        requestAuthorizer.checkAuthorizationStatus()
-        
-        // 初始化宠物
-        let context = container.mainContext
-        petManager.loadOrCreatePet(context: context)
-        
-        // 初始化任务
-        taskManager.loadTasks(context: context)
-        
-        // 初始化成就
-        achievementManager.initializeAchievements(context: context)
-    }
-}
-
-// MARK: - Content View
-struct ContentView: View {
-    @EnvironmentObject var requestAuthorizer: RequestAuthorizer
-    @AppStorage("showIntroScreen") private var showIntroScreen = true
-    
-    var body: some View {
-        Group {
-            if showIntroScreen || requestAuthorizer.needsAuthorization {
-                IntroView()
-            } else {
-                MainTabView()
-            }
-        }
-    }
-}
-
-// MARK: - Main Tab View
-struct MainTabView: View {
-    @State private var selectedTab = 0
-    
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            HomeView()
-                .tabItem {
-                    Label("首页", systemImage: "house.fill")
-                }
-                .tag(0)
-            
-            PetView()
-                .tabItem {
-                    Label("宠物", systemImage: "pawprint.fill")
-                }
-                .tag(1)
-            
-            TaskListView()
-                .tabItem {
-                    Label("任务", systemImage: "checklist")
-                }
-                .tag(2)
-            
-            AchievementView()
-                .tabItem {
-                    Label("成就", systemImage: "trophy.fill")
-                }
-                .tag(3)
-            
-            SettingsView()
-                .tabItem {
-                    Label("设置", systemImage: "gearshape.fill")
-                }
-                .tag(4)
-        }
-        .tint(.purple)
-    }
 }
