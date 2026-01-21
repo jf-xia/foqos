@@ -87,7 +87,7 @@
    - ManagedSettingsStore 在模擬器上可能無法正常工作
    - Shield 配置需要真機驗證
 
-### 📋 需要真機測試的功能 (TODO)
+### 📋 需要真機測試的功能 (使用JackXia16Pro 测试)
 
 1. [ ] FamilyControls 完整授權流程
 2. [ ] ManagedSettingsStore 應用限制
