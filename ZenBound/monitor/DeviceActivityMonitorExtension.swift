@@ -6,6 +6,7 @@
 //
 
 import DeviceActivity
+import Foundation
 import ManagedSettings
 import FamilyControls
 
@@ -230,3 +231,4 @@ private struct SessionSnapshot: Codable {
 // MARK: - ManagedSettingsStore Name Extension
 extension ManagedSettingsStore.Name {
     static let zenbound = ManagedSettingsStore.Name("zenbound")
+}

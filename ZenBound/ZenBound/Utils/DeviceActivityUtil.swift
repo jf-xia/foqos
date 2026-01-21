@@ -257,7 +257,7 @@ class DeviceActivityUtil {
     }
     
     /// 获取当前活动的活动
-    static func getActiveActivities() -> Set<DeviceActivityName> {
+    static func getActiveActivities() -> [DeviceActivityName] {
         return DeviceActivityCenter().activities
     }
     

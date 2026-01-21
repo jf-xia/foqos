@@ -249,7 +249,7 @@ struct QuickTasksSection: View {
 }
 
 struct QuickTaskRow: View {
-    let task: Task
+    let task: ZenTask
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var taskManager: TaskManager
     

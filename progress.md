@@ -496,10 +496,93 @@
    - 支持預設和自定義標題/消息/顏色
 
 ### 🎯 Next Actions
-- [ ] 測試編譯和運行
+- [x] 測試編譯和運行
 - [ ] 實現 Widget 視圖
 - [ ] 添加呼吸練習功能
 - [ ] 添加統計視圖
 
+---
+
+## 2026-01-21 - Session 9: 建置錯誤修復與 UI 測試
+
+### 🎯 Today's Goals
+- [x] 使用 mobile-mcp 測試應用功能
+- [x] 修復所有建置錯誤
+- [x] 驗證 UI 組件正常工作
+
+### 📝 Work Completed
+
+#### 建置錯誤修復
+修復了 8 個建置錯誤：
+
+1. **Widget iOS 18+ 可用性** ✅
+   - `widgetBundle.swift`: 添加 `if #available(iOS 18.0, *)`
+   - `widgetControl.swift`: 添加 `@available(iOS 18.0, *)` 屬性
+
+2. **缺少閉合括號** ✅
+   - `DeviceActivityMonitorExtension.swift`: 添加缺失的 `}`
+
+3. **缺少 Foundation import** ✅
+   - `DeviceActivityMonitorExtension.swift`
+   - `ShieldActionExtension.swift`
+
+4. **缺少 Combine import** ✅
+   - `AchievementManager.swift`
+   - `TaskManager.swift`
+   - `RequestAuthorizer.swift`
+   - `SessionManager.swift`
+   - `PetManager.swift`
+
+5. **缺少 FamilyControls import** ✅
+   - `AppBlockerUtil.swift`
+
+6. **DeviceActivityUtil 返回類型** ✅
+   - 將 `Set<DeviceActivityName>` 改為 `[DeviceActivityName]`
+
+7. **Task 命名衝突** ✅
+   - 將 `Task` 模型重命名為 `ZenTask`
+   - 更新 `TaskManager.swift`、`TaskListView.swift`、`HomeView.swift`、`ZenBoundApp.swift`
+
+8. **缺少 SwiftData import** ✅
+   - `StrictGroupConfigView.swift`
+   - `FocusGroupConfigView.swift`
+   - `EntertainmentGroupConfigView.swift`
+
+#### 模擬器測試結果
+
+**測試設備**: iPhone 17 Pro Max (iOS 26.2)
+
+**已驗證的頁面**:
+- ✅ IntroView - 4 頁引導流程完整
+- ✅ HomeView - 寵物卡片、任務、應用組顯示正常
+- ✅ PetView - 寵物屬性、操作按鈕正常
+- ✅ TaskListView - 統計、過濾器、任務列表正常
+- ✅ AchievementView - 進度、分類、成就列表正常
+- ✅ SettingsView - 授權狀態、設置選項正常
+- ✅ FocusGroupConfigView - 創建表單正常
+
+**添加的調試功能**:
+- IntroView: 添加 DEBUG 模式下的"跳過授權"按鈕
+
+### 📋 待真機測試的功能 (TODO)
+- [ ] FamilyControls 完整授權流程
+- [ ] ManagedSettingsStore 應用限制
+- [ ] DeviceActivityMonitor 擴展觸發
+- [ ] ShieldConfiguration 屏蔽界面
+- [ ] Widget 實時更新
+- [ ] App Groups 數據同步
+
+### 📊 Session Statistics
+- **修復的錯誤**: 8 個
+- **修改的文件**: 14 個
+- **測試的頁面**: 7 個
+- **建置狀態**: ✅ SUCCESS
+
+### 🎯 Next Actions
+- [ ] 真機測試 FamilyControls 功能
+- [ ] 實現 Widget 視圖內容
+- [ ] 添加呼吸練習功能
+- [ ] 添加統計視圖
+- [ ] 移除代碼警告
 ---
 

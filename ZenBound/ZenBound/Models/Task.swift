@@ -10,7 +10,7 @@ import SwiftData
 
 // MARK: - 任务模型
 @Model
-class Task {
+class ZenTask {
     @Attribute(.unique) var id: UUID
     var title: String
     var taskDescription: String
@@ -162,8 +162,8 @@ enum TaskStatus: String, Codable {
 
 // MARK: - 预设任务模板
 enum TaskTemplate {
-    static func dailyFocusTask() -> Task {
-        return Task(
+    static func dailyFocusTask() -> ZenTask {
+        return ZenTask(
             title: "完成一个番茄钟",
             description: "专注25分钟，完成一个完整的番茄钟周期",
             type: .daily,
@@ -175,8 +175,8 @@ enum TaskTemplate {
         )
     }
     
-    static func dailyExerciseTask() -> Task {
-        return Task(
+    static func dailyExerciseTask() -> ZenTask {
+        return ZenTask(
             title: "做运动休息",
             description: "在休息时间完成简单的伸展运动",
             type: .daily,
@@ -188,8 +188,8 @@ enum TaskTemplate {
         )
     }
     
-    static func weeklyStreakTask() -> Task {
-        return Task(
+    static func weeklyStreakTask() -> ZenTask {
+        return ZenTask(
             title: "连续专注7天",
             description: "连续7天每天完成至少一个番茄钟",
             type: .weekly,
@@ -201,8 +201,8 @@ enum TaskTemplate {
         )
     }
     
-    static func breathingExerciseTask() -> Task {
-        return Task(
+    static func breathingExerciseTask() -> ZenTask {
+        return ZenTask(
             title: "完成呼吸练习",
             description: "当看到 Shield 时，完成一次呼吸练习",
             type: .activity,
@@ -213,8 +213,8 @@ enum TaskTemplate {
         )
     }
     
-    static func mathDrillTask() -> Task {
-        return Task(
+    static func mathDrillTask() -> ZenTask {
+        return ZenTask(
             title: "数学练习",
             description: "完成一组数学题目",
             type: .activity,
@@ -225,8 +225,8 @@ enum TaskTemplate {
         )
     }
     
-    static func vocabularyTask() -> Task {
-        return Task(
+    static func vocabularyTask() -> ZenTask {
+        return ZenTask(
             title: "词汇记忆",
             description: "学习并记忆10个新单词",
             type: .activity,

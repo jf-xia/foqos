@@ -101,6 +101,17 @@ struct IntroView: View {
                                     .foregroundColor(.green)
                             }
                         }
+                        
+                        // 跳过授权按钮（用于模拟器测试）
+                        #if DEBUG
+                        Button(action: {
+                            showIntroScreen = false
+                        }) {
+                            Text("跳过授权（仅供测试）")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                        }
+                        #endif
                     } else {
                         // 下一页按钮
                         Button(action: {

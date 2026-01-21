@@ -6,6 +6,7 @@
 //
 
 import FamilyControls
+import SwiftData
 import SwiftUI
 
 struct StrictGroupConfigView: View {

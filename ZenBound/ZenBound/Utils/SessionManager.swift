@@ -6,6 +6,7 @@
 //  负责管理所有类型的会话生命周期
 //
 
+import Combine
 import SwiftData
 import SwiftUI
 import WidgetKit

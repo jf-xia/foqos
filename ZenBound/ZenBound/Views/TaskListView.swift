@@ -181,7 +181,7 @@ struct AllTasksSection: View {
 // MARK: - Task Section
 struct TaskSection: View {
     let title: String
-    let tasks: [Task]
+    let tasks: [ZenTask]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -204,7 +204,7 @@ struct TaskSection: View {
 }
 
 struct TaskRow: View {
-    let task: Task
+    let task: ZenTask
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var taskManager: TaskManager
     

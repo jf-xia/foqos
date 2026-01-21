@@ -20,7 +20,7 @@ private let container: ModelContainer = {
                  StrictSession.self,
                  EntertainmentSession.self,
                  Pet.self,
-                 Task.self,
+                 ZenTask.self,
                  Achievement.self
         )
     } catch {

@@ -6,6 +6,7 @@
 //  负责宠物状态更新、奖励发放和技能触发
 //
 
+import Combine
 import SwiftData
 import SwiftUI
 

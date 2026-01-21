@@ -6,6 +6,7 @@
 //  负责任务的创建、更新和完成逻辑
 //
 
+import Combine
 import SwiftData
 import SwiftUI
 
@@ -15,9 +16,9 @@ class TaskManager: ObservableObject {
     static let shared = TaskManager()
     
     // MARK: - Published Properties
-    @Published var dailyTasks: [Task] = []
-    @Published var weeklyTasks: [Task] = []
-    @Published var activityTasks: [Task] = []
+    @Published var dailyTasks: [ZenTask] = []
+    @Published var weeklyTasks: [ZenTask] = []
+    @Published var activityTasks: [ZenTask] = []
     @Published var completedToday: Int = 0
     
     private init() {}
@@ -31,7 +32,7 @@ class TaskManager: ObservableObject {
         let startOfDay = calendar.startOfDay(for: now)
         
         // 获取所有任务
-        let descriptor = FetchDescriptor<Task>(
+        let descriptor = FetchDescriptor<ZenTask>(
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         
@@ -104,14 +105,14 @@ class TaskManager: ObservableObject {
     }
     
     /// 生成活动任务
-    func generateActivityTask(type: ActivityTaskType, context: ModelContext) -> Task {
-        let task: Task
+    func generateActivityTask(type: ActivityTaskType, context: ModelContext) -> ZenTask {
+        let task: ZenTask
         
         switch type {
         case .physicalExercise:
             task = TaskTemplate.dailyExerciseTask()
         case .knowledgeQuiz:
-            task = Task(
+            task = ZenTask(
                 title: "知识问答",
                 description: "回答一组知识问题",
                 type: .activity,
@@ -121,7 +122,7 @@ class TaskManager: ObservableObject {
                 bonusTime: 15
             )
         case .wishBottle:
-            task = Task(
+            task = ZenTask(
                 title: "许愿瓶",
                 description: "写下你的一个愿望",
                 type: .activity,
@@ -131,7 +132,7 @@ class TaskManager: ObservableObject {
                 bonusTime: 5
             )
         case .emotionDiary:
-            task = Task(
+            task = ZenTask(
                 title: "情绪日记",
                 description: "记录今天的心情",
                 type: .activity,
@@ -141,7 +142,7 @@ class TaskManager: ObservableObject {
                 bonusTime: 10
             )
         case .cooperativeTasks:
-            task = Task(
+            task = ZenTask(
                 title: "合作任务",
                 description: "和家人一起完成一个任务",
                 type: .activity,
@@ -165,7 +166,7 @@ class TaskManager: ObservableObject {
     // MARK: - Task Completion
     
     /// 完成任务
-    func completeTask(_ task: Task, context: ModelContext) {
+    func completeTask(_ task: ZenTask, context: ModelContext) {
         task.complete()
         completedToday += 1
         
@@ -187,7 +188,7 @@ class TaskManager: ObservableObject {
     }
     
     /// 更新任务进度
-    func updateTaskProgress(_ task: Task, context: ModelContext) {
+    func updateTaskProgress(_ task: ZenTask, context: ModelContext) {
         task.incrementProgress()
         
         if task.isCompleted {

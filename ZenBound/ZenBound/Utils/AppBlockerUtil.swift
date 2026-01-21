@@ -6,6 +6,7 @@
 //  封装 ManagedSettingsStore，是应用层与 Apple Screen Time API 之间的桥梁
 //
 
+import FamilyControls
 import ManagedSettings
 import SwiftUI
 

@@ -6,6 +6,7 @@
 //  负责成就的解锁和进度追踪
 //
 
+import Combine
 import SwiftData
 import SwiftUI
 

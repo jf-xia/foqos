@@ -5,6 +5,7 @@
 //  Created by Jack on 21/1/2026.
 //
 
+import Foundation
 import ManagedSettings
 
 // MARK: - App Group Constants
