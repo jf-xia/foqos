@@ -12,7 +12,7 @@ import SwiftData
 struct ZenBoundApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            //todo
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -25,7 +25,7 @@ struct ZenBoundApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            // todo
         }
         .modelContainer(sharedModelContainer)
     }

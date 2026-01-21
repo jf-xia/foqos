@@ -6,6 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		046F749A2F206B570001A3E1 /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 046F74992F206B560001A3E1 /* DeviceActivity.framework */; };
+		046F74A22F206B570001A3E1 /* monitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 046F74972F206B560001A3E1 /* monitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		046F74AE2F206BA60001A3E1 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 046F74AD2F206BA60001A3E1 /* ManagedSettings.framework */; };
+		046F74B62F206BA60001A3E1 /* shieldAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 046F74AC2F206BA60001A3E1 /* shieldAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		046F74C02F206C100001A3E1 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 046F74AD2F206BA60001A3E1 /* ManagedSettings.framework */; };
+		046F74C22F206C100001A3E1 /* ManagedSettingsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 046F74C12F206C100001A3E1 /* ManagedSettingsUI.framework */; };
+		046F74CA2F206C100001A3E1 /* shieldConfig.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 046F74BF2F206C100001A3E1 /* shieldConfig.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		046F74D52F206C950001A3E1 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 046F74D42F206C940001A3E1 /* WidgetKit.framework */; };
+		046F74D72F206C950001A3E1 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 046F74D62F206C950001A3E1 /* SwiftUI.framework */; };
+		046F74E82F206C960001A3E1 /* widgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 046F74D32F206C940001A3E1 /* widgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		046F74762F206AA90001A3E1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,12 +34,66 @@
 			remoteGlobalIDString = 046F74632F206AA70001A3E1;
 			remoteInfo = ZenBound;
 		};
+		046F74A02F206B570001A3E1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 046F745C2F206AA70001A3E1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 046F74962F206B560001A3E1;
+			remoteInfo = monitor;
+		};
+		046F74B42F206BA60001A3E1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 046F745C2F206AA70001A3E1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 046F74AB2F206BA60001A3E1;
+			remoteInfo = shieldAction;
+		};
+		046F74C82F206C100001A3E1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 046F745C2F206AA70001A3E1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 046F74BE2F206C100001A3E1;
+			remoteInfo = shieldConfig;
+		};
+		046F74E62F206C960001A3E1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 046F745C2F206AA70001A3E1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 046F74D22F206C940001A3E1;
+			remoteInfo = widgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		046F74A72F206B570001A3E1 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				046F74A22F206B570001A3E1 /* monitor.appex in Embed Foundation Extensions */,
+				046F74CA2F206C100001A3E1 /* shieldConfig.appex in Embed Foundation Extensions */,
+				046F74E82F206C960001A3E1 /* widgetExtension.appex in Embed Foundation Extensions */,
+				046F74B62F206BA60001A3E1 /* shieldAction.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		046F74642F206AA80001A3E1 /* ZenBound.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZenBound.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		046F74752F206AA90001A3E1 /* ZenBoundTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ZenBoundTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		046F747F2F206AA90001A3E1 /* ZenBoundUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ZenBoundUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		046F74972F206B560001A3E1 /* monitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = monitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		046F74992F206B560001A3E1 /* DeviceActivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DeviceActivity.framework; path = System/Library/Frameworks/DeviceActivity.framework; sourceTree = SDKROOT; };
+		046F74AC2F206BA60001A3E1 /* shieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		046F74AD2F206BA60001A3E1 /* ManagedSettings.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettings.framework; path = System/Library/Frameworks/ManagedSettings.framework; sourceTree = SDKROOT; };
+		046F74BF2F206C100001A3E1 /* shieldConfig.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shieldConfig.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		046F74C12F206C100001A3E1 /* ManagedSettingsUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettingsUI.framework; path = System/Library/Frameworks/ManagedSettingsUI.framework; sourceTree = SDKROOT; };
+		046F74D32F206C940001A3E1 /* widgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = widgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		046F74D42F206C940001A3E1 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		046F74D62F206C950001A3E1 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -36,6 +103,34 @@
 				Info.plist,
 			);
 			target = 046F74632F206AA70001A3E1 /* ZenBound */;
+		};
+		046F74A62F206B570001A3E1 /* Exceptions for "monitor" folder in "monitor" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 046F74962F206B560001A3E1 /* monitor */;
+		};
+		046F74BA2F206BA60001A3E1 /* Exceptions for "shieldAction" folder in "shieldAction" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 046F74AB2F206BA60001A3E1 /* shieldAction */;
+		};
+		046F74CE2F206C100001A3E1 /* Exceptions for "shieldConfig" folder in "shieldConfig" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 046F74BE2F206C100001A3E1 /* shieldConfig */;
+		};
+		046F74EC2F206C960001A3E1 /* Exceptions for "widget" folder in "widgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 046F74D22F206C940001A3E1 /* widgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -56,6 +151,38 @@
 		046F74822F206AA90001A3E1 /* ZenBoundUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ZenBoundUITests;
+			sourceTree = "<group>";
+		};
+		046F749B2F206B570001A3E1 /* monitor */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				046F74A62F206B570001A3E1 /* Exceptions for "monitor" folder in "monitor" target */,
+			);
+			path = monitor;
+			sourceTree = "<group>";
+		};
+		046F74AF2F206BA60001A3E1 /* shieldAction */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				046F74BA2F206BA60001A3E1 /* Exceptions for "shieldAction" folder in "shieldAction" target */,
+			);
+			path = shieldAction;
+			sourceTree = "<group>";
+		};
+		046F74C32F206C100001A3E1 /* shieldConfig */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				046F74CE2F206C100001A3E1 /* Exceptions for "shieldConfig" folder in "shieldConfig" target */,
+			);
+			path = shieldConfig;
+			sourceTree = "<group>";
+		};
+		046F74D82F206C950001A3E1 /* widget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				046F74EC2F206C960001A3E1 /* Exceptions for "widget" folder in "widgetExtension" target */,
+			);
+			path = widget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -82,6 +209,40 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		046F74942F206B560001A3E1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				046F749A2F206B570001A3E1 /* DeviceActivity.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		046F74A92F206BA60001A3E1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				046F74AE2F206BA60001A3E1 /* ManagedSettings.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		046F74BC2F206C100001A3E1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				046F74C02F206C100001A3E1 /* ManagedSettings.framework in Frameworks */,
+				046F74C22F206C100001A3E1 /* ManagedSettingsUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		046F74D02F206C940001A3E1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				046F74D72F206C950001A3E1 /* SwiftUI.framework in Frameworks */,
+				046F74D52F206C950001A3E1 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -91,6 +252,11 @@
 				046F74662F206AA80001A3E1 /* ZenBound */,
 				046F74782F206AA90001A3E1 /* ZenBoundTests */,
 				046F74822F206AA90001A3E1 /* ZenBoundUITests */,
+				046F749B2F206B570001A3E1 /* monitor */,
+				046F74AF2F206BA60001A3E1 /* shieldAction */,
+				046F74C32F206C100001A3E1 /* shieldConfig */,
+				046F74D82F206C950001A3E1 /* widget */,
+				046F74982F206B560001A3E1 /* Frameworks */,
 				046F74652F206AA80001A3E1 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -101,8 +267,24 @@
 				046F74642F206AA80001A3E1 /* ZenBound.app */,
 				046F74752F206AA90001A3E1 /* ZenBoundTests.xctest */,
 				046F747F2F206AA90001A3E1 /* ZenBoundUITests.xctest */,
+				046F74972F206B560001A3E1 /* monitor.appex */,
+				046F74AC2F206BA60001A3E1 /* shieldAction.appex */,
+				046F74BF2F206C100001A3E1 /* shieldConfig.appex */,
+				046F74D32F206C940001A3E1 /* widgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		046F74982F206B560001A3E1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				046F74992F206B560001A3E1 /* DeviceActivity.framework */,
+				046F74AD2F206BA60001A3E1 /* ManagedSettings.framework */,
+				046F74C12F206C100001A3E1 /* ManagedSettingsUI.framework */,
+				046F74D42F206C940001A3E1 /* WidgetKit.framework */,
+				046F74D62F206C950001A3E1 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -115,10 +297,15 @@
 				046F74602F206AA70001A3E1 /* Sources */,
 				046F74612F206AA70001A3E1 /* Frameworks */,
 				046F74622F206AA70001A3E1 /* Resources */,
+				046F74A72F206B570001A3E1 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				046F74A12F206B570001A3E1 /* PBXTargetDependency */,
+				046F74B52F206BA60001A3E1 /* PBXTargetDependency */,
+				046F74C92F206C100001A3E1 /* PBXTargetDependency */,
+				046F74E72F206C960001A3E1 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				046F74662F206AA80001A3E1 /* ZenBound */,
@@ -176,6 +363,94 @@
 			productReference = 046F747F2F206AA90001A3E1 /* ZenBoundUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		046F74962F206B560001A3E1 /* monitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 046F74A32F206B570001A3E1 /* Build configuration list for PBXNativeTarget "monitor" */;
+			buildPhases = (
+				046F74932F206B560001A3E1 /* Sources */,
+				046F74942F206B560001A3E1 /* Frameworks */,
+				046F74952F206B560001A3E1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				046F749B2F206B570001A3E1 /* monitor */,
+			);
+			name = monitor;
+			packageProductDependencies = (
+			);
+			productName = monitor;
+			productReference = 046F74972F206B560001A3E1 /* monitor.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		046F74AB2F206BA60001A3E1 /* shieldAction */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 046F74B72F206BA60001A3E1 /* Build configuration list for PBXNativeTarget "shieldAction" */;
+			buildPhases = (
+				046F74A82F206BA60001A3E1 /* Sources */,
+				046F74A92F206BA60001A3E1 /* Frameworks */,
+				046F74AA2F206BA60001A3E1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				046F74AF2F206BA60001A3E1 /* shieldAction */,
+			);
+			name = shieldAction;
+			packageProductDependencies = (
+			);
+			productName = shieldAction;
+			productReference = 046F74AC2F206BA60001A3E1 /* shieldAction.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		046F74BE2F206C100001A3E1 /* shieldConfig */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 046F74CB2F206C100001A3E1 /* Build configuration list for PBXNativeTarget "shieldConfig" */;
+			buildPhases = (
+				046F74BB2F206C100001A3E1 /* Sources */,
+				046F74BC2F206C100001A3E1 /* Frameworks */,
+				046F74BD2F206C100001A3E1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				046F74C32F206C100001A3E1 /* shieldConfig */,
+			);
+			name = shieldConfig;
+			packageProductDependencies = (
+			);
+			productName = shieldConfig;
+			productReference = 046F74BF2F206C100001A3E1 /* shieldConfig.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		046F74D22F206C940001A3E1 /* widgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 046F74E92F206C960001A3E1 /* Build configuration list for PBXNativeTarget "widgetExtension" */;
+			buildPhases = (
+				046F74CF2F206C940001A3E1 /* Sources */,
+				046F74D02F206C940001A3E1 /* Frameworks */,
+				046F74D12F206C940001A3E1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				046F74D82F206C950001A3E1 /* widget */,
+			);
+			name = widgetExtension;
+			packageProductDependencies = (
+			);
+			productName = widgetExtension;
+			productReference = 046F74D32F206C940001A3E1 /* widgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -197,6 +472,18 @@
 						CreatedOnToolsVersion = 26.2;
 						TestTargetID = 046F74632F206AA70001A3E1;
 					};
+					046F74962F206B560001A3E1 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					046F74AB2F206BA60001A3E1 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					046F74BE2F206C100001A3E1 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					046F74D22F206C940001A3E1 = {
+						CreatedOnToolsVersion = 26.2;
+					};
 				};
 			};
 			buildConfigurationList = 046F745F2F206AA70001A3E1 /* Build configuration list for PBXProject "ZenBound" */;
@@ -216,6 +503,10 @@
 				046F74632F206AA70001A3E1 /* ZenBound */,
 				046F74742F206AA90001A3E1 /* ZenBoundTests */,
 				046F747E2F206AA90001A3E1 /* ZenBoundUITests */,
+				046F74962F206B560001A3E1 /* monitor */,
+				046F74AB2F206BA60001A3E1 /* shieldAction */,
+				046F74BE2F206C100001A3E1 /* shieldConfig */,
+				046F74D22F206C940001A3E1 /* widgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -236,6 +527,34 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		046F747D2F206AA90001A3E1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		046F74952F206B560001A3E1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		046F74AA2F206BA60001A3E1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		046F74BD2F206C100001A3E1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		046F74D12F206C940001A3E1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -266,6 +585,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		046F74932F206B560001A3E1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		046F74A82F206BA60001A3E1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		046F74BB2F206C100001A3E1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		046F74CF2F206C940001A3E1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -278,6 +625,26 @@
 			isa = PBXTargetDependency;
 			target = 046F74632F206AA70001A3E1 /* ZenBound */;
 			targetProxy = 046F74802F206AA90001A3E1 /* PBXContainerItemProxy */;
+		};
+		046F74A12F206B570001A3E1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 046F74962F206B560001A3E1 /* monitor */;
+			targetProxy = 046F74A02F206B570001A3E1 /* PBXContainerItemProxy */;
+		};
+		046F74B52F206BA60001A3E1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 046F74AB2F206BA60001A3E1 /* shieldAction */;
+			targetProxy = 046F74B42F206BA60001A3E1 /* PBXContainerItemProxy */;
+		};
+		046F74C92F206C100001A3E1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 046F74BE2F206C100001A3E1 /* shieldConfig */;
+			targetProxy = 046F74C82F206C100001A3E1 /* PBXContainerItemProxy */;
+		};
+		046F74E72F206C960001A3E1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 046F74D22F206C940001A3E1 /* widgetExtension */;
+			targetProxy = 046F74E62F206C960001A3E1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -299,6 +666,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -307,12 +675,16 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBound;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -333,6 +705,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -341,12 +714,16 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBound;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -479,7 +856,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 27WY6645VZ;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBoundTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -501,7 +878,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 27WY6645VZ;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBoundTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -522,6 +899,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 27WY6645VZ;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBoundUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -542,6 +920,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 27WY6645VZ;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBoundUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -552,6 +931,280 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = ZenBound;
+			};
+			name = Release;
+		};
+		046F74A42F206B570001A3E1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = monitor/monitor.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 27WY6645VZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = monitor/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = monitor;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBound.monitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		046F74A52F206B570001A3E1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = monitor/monitor.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 27WY6645VZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = monitor/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = monitor;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBound.monitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		046F74B82F206BA60001A3E1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = shieldAction/shieldAction.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 27WY6645VZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = shieldAction/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = shieldAction;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBound.shieldAction;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		046F74B92F206BA60001A3E1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = shieldAction/shieldAction.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 27WY6645VZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = shieldAction/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = shieldAction;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBound.shieldAction;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		046F74CC2F206C100001A3E1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = shieldConfig/shieldConfig.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 27WY6645VZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = shieldConfig/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = shieldConfig;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBound.shieldConfig;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		046F74CD2F206C100001A3E1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = shieldConfig/shieldConfig.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 27WY6645VZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = shieldConfig/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = shieldConfig;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBound.shieldConfig;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		046F74EA2F206C960001A3E1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 27WY6645VZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = widget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = widget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBound.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		046F74EB2F206C960001A3E1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 27WY6645VZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = widget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = widget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lxt.ZenBound.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -590,6 +1243,42 @@
 			buildConfigurations = (
 				046F74912F206AA90001A3E1 /* Debug */,
 				046F74922F206AA90001A3E1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		046F74A32F206B570001A3E1 /* Build configuration list for PBXNativeTarget "monitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				046F74A42F206B570001A3E1 /* Debug */,
+				046F74A52F206B570001A3E1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		046F74B72F206BA60001A3E1 /* Build configuration list for PBXNativeTarget "shieldAction" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				046F74B82F206BA60001A3E1 /* Debug */,
+				046F74B92F206BA60001A3E1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		046F74CB2F206C100001A3E1 /* Build configuration list for PBXNativeTarget "shieldConfig" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				046F74CC2F206C100001A3E1 /* Debug */,
+				046F74CD2F206C100001A3E1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		046F74E92F206C960001A3E1 /* Build configuration list for PBXNativeTarget "widgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				046F74EA2F206C960001A3E1 /* Debug */,
+				046F74EB2F206C960001A3E1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
