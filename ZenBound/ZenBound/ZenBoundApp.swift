@@ -42,9 +42,9 @@ struct ZenBoundApp: App {
   }
     var body: some Scene {
         WindowGroup {
-            // todo
-            .environmentObject(requestAuthorizer)      // 权限管理 / Authorization
-            .environmentObject(startegyManager)        // 策略管理 / Strategy (核心)
+            DemoHomeView()
+                .environmentObject(requestAuthorizer)      // 权限管理 / Authorization
+                .environmentObject(startegyManager)        // 策略管理 / Strategy (核心)
         }
         .modelContainer(container)
     }
