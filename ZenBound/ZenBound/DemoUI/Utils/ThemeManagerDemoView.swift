@@ -262,19 +262,27 @@ struct SettingsView: View {
     
     // MARK: - Actions
     private func selectColor(_ name: String, color: Color) {
-        themeManager.themeColor = color
-        addLog("🎨 选择颜色: \(name)", type: .success)
+        // TODO: themeColor is read-only, use setTheme(named:) with proper color name mapping
+        // For now, find the closest matching color from availableColors
+        if let matchingColor = ThemeManager.availableColors.first(where: { $0.name.lowercased().contains(name.lowercased()) }) {
+            themeManager.setTheme(named: matchingColor.name)
+            addLog("🎨 选择颜色: \(matchingColor.name)", type: .success)
+        } else {
+            // Fallback to first available color
+            themeManager.setTheme(named: ThemeManager.availableColors.first!.name)
+            addLog("🎨 选择颜色: \(name) (fallback)", type: .warning)
+        }
     }
     
     private func randomColor() {
-        let random = themeColors.randomElement()!
-        themeManager.themeColor = random.color
+        let random = ThemeManager.availableColors.randomElement()!
+        themeManager.setTheme(named: random.name)
         addLog("🎲 随机颜色: \(random.name)", type: .success)
     }
     
     private func resetToDefault() {
-        themeManager.themeColor = .blue
-        addLog("🔄 恢复默认: Blue", type: .warning)
+        themeManager.setTheme(named: "Grimace Purple")
+        addLog("🔄 恢复默认: Grimace Purple", type: .warning)
     }
     
     private func addLog(_ message: String, type: LogType) {

@@ -32,7 +32,9 @@ private let log = Logger(
 // Optionally override any of the functions below.
 // Make sure that your class name matches the NSExtensionPrincipalClass in your Info.plist.
 class DeviceActivityMonitorExtension: DeviceActivityMonitor {
-  private let appBlocker = AppBlockerUtil()
+  // TODO: AppBlockerUtil needs to be shared with this extension target
+  // For now using ManagedSettingsStore directly
+  private let store = ManagedSettingsStore()
 
   override init() {
     super.init()
@@ -40,15 +42,13 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
   override func intervalDidStart(for activity: DeviceActivityName) {
     super.intervalDidStart(for: activity)
-
     log.info("intervalDidStart for activity: \(activity.rawValue)")
-    TimerActivityUtil.startTimerActivity(for: activity)
+    // TODO: Integrate with TimerActivityUtil when shared target is configured
   }
 
   override func intervalDidEnd(for activity: DeviceActivityName) {
     super.intervalDidEnd(for: activity)
-
     log.info("intervalDidEnd for activity: \(activity.rawValue)")
-    TimerActivityUtil.stopTimerActivity(for: activity)
+    // TODO: Integrate with TimerActivityUtil when shared target is configured
   }
 }

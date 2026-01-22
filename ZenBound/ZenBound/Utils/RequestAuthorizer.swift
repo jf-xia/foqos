@@ -1,3 +1,4 @@
+import Combine
 import DeviceActivity
 import FamilyControls
 import ManagedSettings
@@ -210,6 +211,25 @@ import SwiftUI
 
 class RequestAuthorizer: ObservableObject {
   @Published var isAuthorized = false
+  @Published var authorizationStatus: AuthorizationStatus = .notDetermined
+
+  init() {
+    checkAuthorizationStatus()
+  }
+
+  func checkAuthorizationStatus() {
+    authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+    isAuthorized = authorizationStatus == .approved
+  }
+
+  func requestAuthorization() async throws {
+    try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+    print("Individual authorization successful")
+    
+    await MainActor.run {
+      self.checkAuthorizationStatus()
+    }
+  }
 
   func requestAuthorization() {
     Task {
@@ -219,14 +239,23 @@ class RequestAuthorizer: ObservableObject {
 
         // Dispatch the update to the main thread
         await MainActor.run {
-          self.isAuthorized = true
+          self.checkAuthorizationStatus()
         }
       } catch {
         print("Error requesting authorization: \(error)")
         await MainActor.run {
           self.isAuthorized = false
+          self.checkAuthorizationStatus()
         }
       }
+    }
+  }
+
+  func revokeAuthorization() async {
+    // Note: Apple doesn't provide a direct API to revoke authorization
+    // User needs to manually revoke from Settings > Screen Time
+    await MainActor.run {
+      self.checkAuthorizationStatus()
     }
   }
 

@@ -1,3 +1,4 @@
+import FamilyControls
 import SwiftUI
 
 /// SharedData Demo - 展示 App Group 数据共享

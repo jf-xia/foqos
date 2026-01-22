@@ -1,3 +1,5 @@
+import Combine
+import DeviceActivity
 import SwiftData
 import SwiftUI
 import WidgetKit
@@ -349,14 +351,16 @@ class StrategyManager: ObservableObject {
   /// 🔄 策略选择流程 / Strategy Selection Flow:
   /// BlockedProfiles.blockingStrategyId -> getStrategy(id:) -> 返回对应策略实例
   /// BlockedProfiles.blockingStrategyId -> getStrategy(id:) -> Returns strategy instance
+  /// 
+  /// TODO: Add NFC and QR strategies when implemented
+  /// - NFCBlockingStrategy
+  /// - NFCManualBlockingStrategy  
+  /// - NFCTimerBlockingStrategy
+  /// - QRCodeBlockingStrategy
+  /// - QRManualBlockingStrategy
+  /// - QRTimerBlockingStrategy
   static let availableStrategies: [BlockingStrategy] = [
     ManualBlockingStrategy(),
-    NFCBlockingStrategy(),
-    NFCManualBlockingStrategy(),
-    NFCTimerBlockingStrategy(),
-    QRCodeBlockingStrategy(),
-    QRManualBlockingStrategy(),
-    QRTimerBlockingStrategy(),
     ShortcutTimerBlockingStrategy(),
   ]
 
@@ -983,7 +987,8 @@ class StrategyManager: ObservableObject {
     {
       return strategy
     } else {
-      return NFCBlockingStrategy()
+      // TODO: Replace with appropriate strategy when NFC is available
+      return ManualBlockingStrategy()
     }
   }
 
@@ -1133,9 +1138,10 @@ class StrategyManager: ObservableObject {
     SharedData.flushCompletedSessionsForSchedular()
   }
 
-  private func resultFromURL(_ url: String) -> NFCResult {
-    return NFCResult(id: url, url: url, DateScanned: Date())
-  }
+  // TODO: Re-enable when NFC strategies are implemented
+  // private func resultFromURL(_ url: String) -> NFCResult {
+  //   return NFCResult(id: url, url: url, DateScanned: Date())
+  // }
 
   private func startBlocking(
     context: ModelContext,

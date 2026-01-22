@@ -64,7 +64,7 @@ class BlockedProfiles {
     selectedActivity: FamilyActivitySelection = FamilyActivitySelection(),
     createdAt: Date = Date(),
     updatedAt: Date = Date(),
-    blockingStrategyId: String = NFCBlockingStrategy.id,
+    blockingStrategyId: String = ManualBlockingStrategy.id,  // TODO: Change to NFCBlockingStrategy when implemented
     strategyData: Data? = nil,
     enableLiveActivity: Bool = false,
     reminderTimeInSeconds: UInt32? = nil,
@@ -331,7 +331,7 @@ class BlockedProfiles {
     in context: ModelContext,
     name: String,
     selection: FamilyActivitySelection = FamilyActivitySelection(),
-    blockingStrategyId: String = NFCBlockingStrategy.id,
+    blockingStrategyId: String = ManualBlockingStrategy.id,  // TODO: Change to NFCBlockingStrategy when implemented
     strategyData: Data? = nil,
     enableLiveActivity: Bool = false,
     reminderTimeInSeconds: UInt32? = nil,
@@ -392,7 +392,8 @@ class BlockedProfiles {
     let cloned = BlockedProfiles(
       name: newName,
       selectedActivity: source.selectedActivity,
-      blockingStrategyId: source.blockingStrategyId ?? NFCBlockingStrategy.id,
+      // TODO: Replace with NFCBlockingStrategy.id when NFC strategy is available
+      blockingStrategyId: source.blockingStrategyId ?? ManualBlockingStrategy.id,
       strategyData: source.strategyData,
       enableLiveActivity: source.enableLiveActivity,
       reminderTimeInSeconds: source.reminderTimeInSeconds,

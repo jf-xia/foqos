@@ -125,6 +125,13 @@
 			);
 			target = 046F74BE2F206C100001A3E1 /* shieldConfig */;
 		};
+		046F74EC2F206C960001A3E1 /* Exceptions for "widget" folder in "widgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 046F74D22F206C940001A3E1 /* widgetExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -172,6 +179,9 @@
 		};
 		046F74D82F206C950001A3E1 /* widget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				046F74EC2F206C960001A3E1 /* Exceptions for "widget" folder in "widgetExtension" target */,
+			);
 			path = widget;
 			sourceTree = "<group>";
 		};

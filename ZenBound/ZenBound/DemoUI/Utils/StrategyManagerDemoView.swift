@@ -85,7 +85,7 @@ struct StrategyManagerDemoView: View {
                                     VStack(alignment: .leading) {
                                         Text(profile.name)
                                             .foregroundColor(.primary)
-                                        Text(profile.blockingStrategyType.rawValue)
+                                        Text(profile.blockingStrategyId ?? "未知策略")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
@@ -257,7 +257,7 @@ private func syncSharedData() {
         guard let profile = selectedProfile else { return }
         
         addLog("▶️ 启动会话: \(profile.name)", type: .info)
-        addLog("   1. 验证策略: \(profile.blockingStrategyType.rawValue)", type: .info)
+        addLog("   1. 验证策略: \(profile.blockingStrategyId ?? "未知")", type: .info)
         addLog("   2. 创建 Session 对象", type: .info)
         addLog("   3. 激活 AppBlockerUtil.activateRestrictions()", type: .info)
         addLog("   4. 启动 DeviceActivityCenter 计时器", type: .info)

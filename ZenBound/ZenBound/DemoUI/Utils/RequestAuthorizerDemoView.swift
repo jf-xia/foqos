@@ -1,3 +1,4 @@
+import FamilyControls
 import SwiftUI
 
 /// RequestAuthorizer Demo - 展示屏幕时间授权管理

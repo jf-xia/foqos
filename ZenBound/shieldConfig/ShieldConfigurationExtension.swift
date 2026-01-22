@@ -52,8 +52,9 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
   private func createCustomShieldConfiguration(for type: BlockedContentType, title: String)
     -> ShieldConfiguration
   {
-    // Get user's selected theme color
-    let brandColor = UIColor(ThemeManager.shared.themeColor)
+    // TODO: ThemeManager needs to be shared with this extension target
+    // For now using default brand color
+    let brandColor = UIColor.systemBlue
 
     // Get random fun message
     let randomMessage = getFunBlockMessage(for: type, title: title)
