@@ -221,11 +221,11 @@ def format_structure_compact(structures, indent=0):
 def generate_markdown(file_structures):
     """生成完整的 Markdown 文档"""
     lines = [
-        "# ZenBound Swift 代码结构",
+        "# ZenBound Swift Frameworks and structures",
         "",
-        f"> 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"> Created At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         "",
-        "## 文件列表",
+        "## File List",
         "",
     ]
     
@@ -252,7 +252,7 @@ def generate_markdown(file_structures):
     lines.append("")
     lines.append("---")
     lines.append("")
-    lines.append("## 详细结构")
+    lines.append("## Detailed Structure")
     lines.append("")
     
     # 生成每个文件的结构
@@ -271,8 +271,6 @@ def generate_markdown(file_structures):
             if structures:
                 formatted = format_structure_compact(structures)
                 lines.extend(formatted)
-            else:
-                lines.append("*无可解析结构*")
             
             lines.append("")
     
