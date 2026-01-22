@@ -13,44 +13,5 @@
 
 ## Frameworks and structures
 
-├── ZenBound
-│ ├── ZenBoundApp.swift: main entry point, sets up the app environment, background task and ModelContainer.
-│ ├── DemoUI: ignore, demo views for testing features during development.
-│ │ ├── ...
-│ ├── Models
-│ │ ├── BlockedProfiles.swift
-│ │ ├── BlockedProfileSessions.swift
-│ │ ├── Schedule.swift
-│ │ ├── Shared.swift
-│ │ ├── Strategies
-│ │ │ ├── BlockingStrategy.swift
-│ │ │ ├── Data
-│ │ │ │ └── StrategyTimerData.swift
-│ │ │ ├── ManualBlockingStrategy.swift
-│ │ │ └── ShortcutTimerBlockingStrategy.swift
-│ │ └── Timers
-│ │ ├── BreakTimerActivity.swift
-│ │ ├── ScheduleTimerActivity.swift
-│ │ ├── StrategyTimerActivity.swift
-│ │ ├── TimerActivity.swift
-│ │ └── TimerActivityUtil.swift
-│ ├── Utils
-│ │ ├── AppBlockerUtil.swift
-│ │ ├── DeviceActivityCenterUtil.swift
-│ │ ├── FamilyActivityUtil.swift
-│ │ ├── FocusMessages.swift
-│ │ ├── LiveActivityManager.swift
-│ │ ├── ProfileInsightsUtil.swift
-│ │ ├── RatingManager.swift
-│ │ ├── RequestAuthorizer.swift: class RequestAuthorizer { isAuthorized, authorizationStatus, checkAuthorizationStatus(), requestAuthorization(), revokeAuthorization(), getAuthorizationStatus() -> AuthorizationStatus }
-│ │ ├── StrategyManager.swift
-│ │ ├── ThemeManager.swift
-│ │ └── TimersUtil.swift
-├── monitor
-│ └── DeviceActivityMonitorExtension.swift
-├── shieldAction
-│ └── ShieldActionExtension.swift
-├── shieldConfig
-│ └── ShieldConfigurationExtension.swift
-└── widget
-└── widgetBundle.swift
+- Read docs/swift_structure.md for Swift project structure and coding conventions.
+- Run scripts/swift_structure_analyzer.py to generate Swift code structure documentation if needed.
