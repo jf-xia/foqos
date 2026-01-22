@@ -19,6 +19,7 @@ from datetime import datetime
 PROJECT_ROOT = Path(__file__).parent.parent
 EXCLUDE_DIRS = {'.build', 'build', 'DerivedData', '.git', 'Pods', 'Carthage'}
 OUTPUT_DIR = PROJECT_ROOT / "docs"
+SKIP_COMMENTS = True  # 默认跳过注释节点
 
 
 def get_swift_files():
@@ -27,6 +28,15 @@ def get_swift_files():
     for root, dirs, files in os.walk(PROJECT_ROOT):
         # 排除不需要的目录
         dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS and not d.endswith('.xcodeproj') and not d.endswith('.xcworkspace')]
+
+        # 跳过 ZenBound/DemoUI 目录（默认配置）
+        try:
+            rel_root = Path(root).relative_to(PROJECT_ROOT)
+        except Exception:
+            rel_root = None
+
+        if rel_root == Path('ZenBound'):
+            dirs[:] = [d for d in dirs if d != 'DemoUI']
         
         for file in files:
             if file.endswith('.swift'):
@@ -72,6 +82,10 @@ def extract_structure(data, depth=0):
     for item in substructures:
         kind = item.get('key.kind', '')
         name = item.get('key.name', '')
+        
+        # 跳过注释节点（如果配置为True）
+        if SKIP_COMMENTS and kind == 'source.lang.swift.syntaxtype.comment':
+            continue
         
         if not name:
             # 递归处理无名结构
