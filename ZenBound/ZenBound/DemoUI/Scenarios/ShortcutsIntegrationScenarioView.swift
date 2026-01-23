@@ -251,7 +251,7 @@ struct StartFocusIntent: AppIntent {
             durationInMinutes: durationMinutes
         )
         
-        return .result(dialog: "已开始\(profile.name)")
+        return .result(dialog: "已开始\\(profile.name)")
     }
 }
 """

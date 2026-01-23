@@ -1,6 +1,6 @@
 //
 //  ShieldConfigurationExtension.swift
-//  FoqosShieldConfig
+//  ZenBoundShieldConfig
 //
 //  Created by Ali Waseem on 2025-08-11.
 //

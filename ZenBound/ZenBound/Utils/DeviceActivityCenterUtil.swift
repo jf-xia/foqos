@@ -58,7 +58,7 @@ import SwiftUI
  }
  ```
  
- **注意**：本项目 (Foqos) 采用了类似“Manager 封装”的模式，但在 `DeviceActivityCenterUtil` 中使用了静态方法而非单例，并且针对 `BlockedProfile` 动态生成了 UUID 相关的 Activity Name，这是为了支持用户创建无限多个自定义的屏蔽配置，比单纯的静态枚举更灵活。
+ **注意**：本项目 (ZenBound) 采用了类似“Manager 封装”的模式，但在 `DeviceActivityCenterUtil` 中使用了静态方法而非单例，并且针对 `BlockedProfile` 动态生成了 UUID 相关的 Activity Name，这是为了支持用户创建无限多个自定义的屏蔽配置，比单纯的静态枚举更灵活。
  */
 class DeviceActivityCenterUtil {
   // MARK: - Schedule (daily repeating)

@@ -32,7 +32,7 @@ import SwiftUI
  
  项目内发现的用法点：
  
- - **初始化与注入**：在 foqosApp.swift 中通过 `@StateObject private var ratingManager = RatingManager()` 创建单例，并通过 `.environmentObject(ratingManager)` 注入到 HomeView
+ - **初始化与注入**：在 ZenBoundApp.swift 中通过 `@StateObject private var ratingManager = RatingManager()` 创建单例，并通过 `.environmentObject(ratingManager)` 注入到 HomeView
  - **调用点**：在 HomeView.swift 的 `strategyButtonPress(_:)` 中，当用户按下"启动/停止屏蔽会话"按钮时，调用 `ratingManager.incrementLaunchCount()` 来增加启动计数
  - **相关 UI 流程**：属于"仪表盘/主屏"的一部分，用户每次点击"开始屏蔽"或其他策略按钮时都会触发计数增长
  

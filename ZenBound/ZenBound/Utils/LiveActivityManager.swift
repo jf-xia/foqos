@@ -1,4 +1,5 @@
 import ActivityKit
+import Combine
 import Foundation
 import SwiftUI
 
@@ -73,7 +74,7 @@ class LiveActivityManager: ObservableObject {
   @Published var currentActivity: Activity<ZbWidgetAttributes>?
 
   // Use AppStorage for persisting the activity ID across app launches
-  @AppStorage("com.foqos.currentActivityId") private var storedActivityId: String = ""
+  @AppStorage("com.ZenBound.currentActivityId") private var storedActivityId: String = ""
 
   static let shared = LiveActivityManager()
 

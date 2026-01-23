@@ -126,12 +126,35 @@
 			);
 			target = 046F74BE2F206C100001A3E1 /* shieldConfig */;
 		};
-		046F74EC2F206C960001A3E1 /* Exceptions for "widget" folder in "widgetExtension" target */ = {
+		048486072F2302F000B154A9 /* Exceptions for "ZenBound" folder in "monitor" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info.plist,
+				Models/Schedule.swift,
+				Models/Shared.swift,
+				Models/Timers/BreakTimerActivity.swift,
+				Models/Timers/ScheduleTimerActivity.swift,
+				Models/Timers/StrategyTimerActivity.swift,
+				Models/Timers/TimerActivity.swift,
+				Models/Timers/TimerActivityUtil.swift,
+				Utils/AppBlockerUtil.swift,
+			);
+			target = 046F74962F206B560001A3E1 /* monitor */;
+		};
+		0484860A2F2302F000B154A9 /* Exceptions for "ZenBound" folder in "widgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Models/Schedule.swift,
+				Models/Shared.swift,
+				Utils/AppBlockerUtil.swift,
 			);
 			target = 046F74D22F206C940001A3E1 /* widgetExtension */;
+		};
+		048488CA2F23120C00B154A9 /* Exceptions for "widget" folder in "ZenBound" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ZbWidgetLiveActivity.swift,
+			);
+			target = 046F74632F206AA70001A3E1 /* ZenBound */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -140,6 +163,8 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				046F74872F206AA90001A3E1 /* Exceptions for "ZenBound" folder in "ZenBound" target */,
+				048486072F2302F000B154A9 /* Exceptions for "ZenBound" folder in "monitor" target */,
+				0484860A2F2302F000B154A9 /* Exceptions for "ZenBound" folder in "widgetExtension" target */,
 			);
 			path = ZenBound;
 			sourceTree = "<group>";
@@ -181,7 +206,7 @@
 		046F74D82F206C950001A3E1 /* widget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				046F74EC2F206C960001A3E1 /* Exceptions for "widget" folder in "widgetExtension" target */,
+				048488CA2F23120C00B154A9 /* Exceptions for "widget" folder in "ZenBound" target */,
 			);
 			path = widget;
 			sourceTree = "<group>";
@@ -663,6 +688,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ZenBound/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -702,6 +728,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ZenBound/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1150,7 +1177,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 27WY6645VZ;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = widget/Info.plist;
+				INFOPLIST_FILE = "widgetExtension-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = widget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
@@ -1186,7 +1213,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 27WY6645VZ;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = widget/Info.plist;
+				INFOPLIST_FILE = "widgetExtension-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = widget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;

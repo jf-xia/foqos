@@ -26,7 +26,7 @@ class ThemeManager: ObservableObject {
   private static let defaultColorName = "Grimace Purple"
 
   @AppStorage(
-    "foqosThemeColorName", store: UserDefaults(suiteName: "group.com.zenbound.data"))
+    "ZenBoundThemeColorName", store: UserDefaults(suiteName: "group.com.zenbound.data"))
   private var themeColorName: String = defaultColorName
 
   var selectedColorName: String {

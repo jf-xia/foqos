@@ -11,18 +11,18 @@
 
 ## 🎯 10种应用场景概览
 
-| # | 场景名称 | 核心功能组合 | 状态 |
-|---|---------|-------------|------|
-| 1 | 工作专注模式 | BlockedProfiles + ManualBlockingStrategy + LiveActivity | ✅ |
-| 2 | 学习计划模式 | Schedule + ScheduleTimerActivity + ProfileInsights | ✅ |
-| 3 | 社交媒体戒断 | AppBlockerUtil + StrategyManager + FocusMessages | ✅ |
-| 4 | 睡前数字戒断 | Schedule + BreakTimerActivity + TimersUtil | ✅ |
-| 5 | 番茄工作法 | ShortcutTimerBlockingStrategy + BreakTimer + Notification | ✅ |
-| 6 | 家庭共享管理 | FamilyActivityUtil + SharedData + MultiProfile | ✅ |
-| 7 | 紧急解锁机制 | EmergencyUnblock + StrategyManager + StrictMode | ✅ |
-| 8 | 会话数据分析 | ProfileInsightsUtil + Sessions + Charts | ✅ |
-| 9 | NFC物理解锁 | PhysicalUnlock + NFCTagId + BlockingStrategy | ✅ |
-| 10 | 快捷指令集成 | AppIntents + DeepLink + BackgroundSession | ✅ |
+| #   | 场景名称     | 核心功能组合                                              | 状态 |
+| --- | ------------ | --------------------------------------------------------- | ---- |
+| 1   | 工作专注模式 | BlockedProfiles + ManualBlockingStrategy + LiveActivity   | ✅    |
+| 2   | 学习计划模式 | Schedule + ScheduleTimerActivity + ProfileInsights        | ✅    |
+| 3   | 社交媒体戒断 | AppBlockerUtil + StrategyManager + FocusMessages          | ✅    |
+| 4   | 睡前数字戒断 | Schedule + BreakTimerActivity + TimersUtil                | ✅    |
+| 5   | 番茄工作法   | ShortcutTimerBlockingStrategy + BreakTimer + Notification | ✅    |
+| 6   | 家庭共享管理 | FamilyActivityUtil + SharedData + MultiProfile            | ✅    |
+| 7   | 紧急解锁机制 | EmergencyUnblock + StrategyManager + StrictMode           | ✅    |
+| 8   | 会话数据分析 | ProfileInsightsUtil + Sessions + Charts                   | ✅    |
+| 9   | NFC物理解锁  | PhysicalUnlock + NFCTagId + BlockingStrategy              | ✅    |
+| 10  | 快捷指令集成 | AppIntents + DeepLink + BackgroundSession                 | ✅    |
 
 ## 📁 文件结构
 
@@ -128,10 +128,12 @@ ZenBound/DemoUI/
 
 ## ✅ 进度跟踪
 
-- [ ] 创建 Scenarios 目录
-- [ ] 创建 ScenariosHomeView.swift
-- [ ] 实现场景1-3
-- [ ] 实现场景4-6
-- [ ] 实现场景7-10
-- [ ] 更新 DemoHomeView.swift
-- [ ] 测试所有场景
+- [x] 创建 Scenarios 目录
+- [x] 创建 ScenariosHomeView.swift
+- [x] 实现场景1-3
+- [x] 实现场景4-6
+- [x] 实现场景7-10
+- [x] 更新 DemoHomeView.swift
+- [x] 测试所有场景
+- [x] 修复编译错误（ZbWidgetAttributes, LiveActivityManager, ShortcutsIntegrationScenarioView）
+- [x] 配置 widgetExtension Info.plist

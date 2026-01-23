@@ -193,7 +193,7 @@ func deactivateRestrictions() {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             addLog("页面加载", type: .info)
-            addLog("ManagedSettingsStore: foqosAppRestrictions", type: .info)
+            addLog("ManagedSettingsStore: zbAppRestrictions", type: .info)
         }
     }
     

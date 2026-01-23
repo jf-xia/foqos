@@ -392,7 +392,7 @@ SharedData.removeSnapshot(for: profileId)
         .navigationTitle("家庭共享管理")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showCreateSheet) {
-            CreateProfileSheet(
+            FamilyCreateProfileSheet(
                 profileName: .constant("新配置"),
                 onCreate: { name in
                     createProfile(name: name)
@@ -432,7 +432,7 @@ SharedData.removeSnapshot(for: profileId)
 }
 
 // MARK: - Create Profile Sheet
-struct CreateProfileSheet: View {
+struct FamilyCreateProfileSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var profileName: String
     let onCreate: (String) -> Void

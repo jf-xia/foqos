@@ -443,7 +443,7 @@
 `ZenBound/Utils/LiveActivityManager.swift`
 
 **🔷 class LiveActivityManager**: ObservableObject
-  - `var currentActivity`: Activity<FoqosWidgetAttributes>?
+  - `var currentActivity`: Activity<ZbWidgetAttributes>?
   - -`var storedActivityId`: String
   - `static var shared`
   - `LiveActivityManager` (call)

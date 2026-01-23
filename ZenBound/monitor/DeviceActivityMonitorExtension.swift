@@ -1,6 +1,6 @@
 //
 //  DeviceActivityMonitorExtension.swift
-//  FoqosDeviceMonitor
+//  ZenBoundDeviceMonitor
 //
 //  Created by Ali Waseem on 2025-05-27.
 //
