@@ -191,6 +191,25 @@ struct ScenariosHomeView: View {
             } header: {
                 Label("⚙️ 高级功能", systemImage: "gearshape.2.fill")
             }
+            
+            // MARK: - 智能场景
+            Section {
+                NavigationLink {
+                    LocationBasedScenarioView()
+                } label: {
+                    ScenarioRowView(
+                        icon: "location.fill",
+                        title: "地理位置组配置",
+                        subtitle: "在家、学校、办公室自动切换策略",
+                        color: .teal,
+                        isNew: true
+                    )
+                }
+            } header: {
+                Label("🌍 智能场景", systemImage: "sparkles")
+            } footer: {
+                Text("根据上下文自动调整屏蔽策略")
+            }
         }
         .navigationTitle("应用场景")
         .listStyle(.insetGrouped)
