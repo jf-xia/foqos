@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 应用场景入口 - 展示10种实用场景
+/// 应用场景入口 - 展示实用场景和配置模板
 struct ScenariosHomeView: View {
     @StateObject private var themeManager = ThemeManager.shared
     
@@ -12,11 +12,54 @@ struct ScenariosHomeView: View {
                     Text("🎯 实用场景指南")
                         .font(.headline)
                     
-                    Text("以下10种场景展示了如何组合ZenBound的各项功能来满足不同的屏幕时间管理需求。每个场景都包含详细的功能说明、代码示例和改进建议。")
+                    Text("以下场景展示了如何组合ZenBound的各项功能来满足不同的屏幕时间管理需求。每个场景都包含详细的功能说明、代码示例和改进建议。")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 8)
+            }
+            
+            // MARK: - 配置模板 (新增)
+            Section {
+                NavigationLink {
+                    FocusGroupConfigView()
+                } label: {
+                    ScenarioRowView(
+                        icon: "brain.head.profile",
+                        title: "专注组配置",
+                        subtitle: "番茄工作法 · 强制休息 · 健康习惯",
+                        color: .red,
+                        isNew: true
+                    )
+                }
+                
+                NavigationLink {
+                    StrictGroupConfigView()
+                } label: {
+                    ScenarioRowView(
+                        icon: "lock.shield.fill",
+                        title: "严格组配置",
+                        subtitle: "每日限制 · 时间段调度 · 紧急解锁",
+                        color: .orange,
+                        isNew: true
+                    )
+                }
+                
+                NavigationLink {
+                    EntertainmentGroupConfigView()
+                } label: {
+                    ScenarioRowView(
+                        icon: "gamecontroller.fill",
+                        title: "娱乐组配置",
+                        subtitle: "周末假期 · 延长使用 · 活动任务",
+                        color: .green,
+                        isNew: true
+                    )
+                }
+            } header: {
+                Label("🎨 配置模板", systemImage: "slider.horizontal.3")
+            } footer: {
+                Text("三种预设配置模板，快速创建专属屏蔽配置")
             }
             
             // MARK: - 工作与学习
@@ -161,6 +204,7 @@ struct ScenarioRowView: View {
     let title: String
     let subtitle: String
     let color: Color
+    var isNew: Bool = false
     
     var body: some View {
         HStack(spacing: 12) {
@@ -172,8 +216,20 @@ struct ScenarioRowView: View {
                 .cornerRadius(8)
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline)
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                    
+                    if isNew {
+                        Text("NEW")
+                            .font(.caption2.bold())
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(3)
+                    }
+                }
                 Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
