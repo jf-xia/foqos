@@ -7,6 +7,49 @@ struct DemoHomeView: View {
     var body: some View {
         NavigationStack {
             List {
+                // MARK: - 应用场景 (新增)
+                Section {
+                    NavigationLink {
+                        ScenariosHomeView()
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "sparkles.rectangle.stack")
+                                .font(.title2)
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.purple, .blue],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 32)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("10种应用场景")
+                                    .font(.headline)
+                                Text("功能组合实战演示")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Text("NEW")
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.red)
+                                .foregroundColor(.white)
+                                .cornerRadius(4)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } header: {
+                    Label("🎯 应用场景", systemImage: "star.fill")
+                } footer: {
+                    Text("将多个功能组合成完整的使用场景")
+                }
+                
                 // MARK: - Models 数据模型
                 Section {
                     NavigationLink {

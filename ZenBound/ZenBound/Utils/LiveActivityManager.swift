@@ -70,7 +70,7 @@ import SwiftUI
 
 class LiveActivityManager: ObservableObject {
   // Published property for live activity reference
-  @Published var currentActivity: Activity<FoqosWidgetAttributes>?
+  @Published var currentActivity: Activity<ZbWidgetAttributes>?
 
   // Use AppStorage for persisting the activity ID across app launches
   @AppStorage("com.foqos.currentActivityId") private var storedActivityId: String = ""
@@ -105,7 +105,7 @@ class LiveActivityManager: ObservableObject {
 
     // Check if we have a saved activity ID
     if !storedActivityId.isEmpty {
-      if let existingActivity = Activity<FoqosWidgetAttributes>.activities.first(where: {
+      if let existingActivity = Activity<ZbWidgetAttributes>.activities.first(where: {
         $0.id == storedActivityId
       }) {
         // Found the existing activity
@@ -146,8 +146,8 @@ class LiveActivityManager: ObservableObject {
     // Create and start the activity
     let profileName = session.blockedProfile.name
     let message = FocusMessages.getRandomMessage()
-    let attributes = FoqosWidgetAttributes(name: profileName, message: message)
-    let contentState = FoqosWidgetAttributes.ContentState(
+    let attributes = ZbWidgetAttributes(name: profileName, message: message)
+    let contentState = ZbWidgetAttributes.ContentState(
       startTime: session.startTime,
       isBreakActive: session.isBreakActive,
       breakStartTime: session.breakStartTime,
@@ -176,7 +176,7 @@ class LiveActivityManager: ObservableObject {
       return
     }
 
-    let updatedState = FoqosWidgetAttributes.ContentState(
+    let updatedState = ZbWidgetAttributes.ContentState(
       startTime: session.startTime,
       isBreakActive: session.isBreakActive,
       breakStartTime: session.breakStartTime,
@@ -195,7 +195,7 @@ class LiveActivityManager: ObservableObject {
       return
     }
 
-    let updatedState = FoqosWidgetAttributes.ContentState(
+    let updatedState = ZbWidgetAttributes.ContentState(
       startTime: session.startTime,
       isBreakActive: session.isBreakActive,
       breakStartTime: session.breakStartTime,
@@ -215,7 +215,7 @@ class LiveActivityManager: ObservableObject {
     }
 
     // End the activity
-    let completedState = FoqosWidgetAttributes.ContentState(
+    let completedState = ZbWidgetAttributes.ContentState(
       startTime: Date.now
     )
 
