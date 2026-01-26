@@ -168,4 +168,69 @@ enum SharedData {
   static func setEndTime(date: Date) {
     activeSharedSession?.endTime = date
   }
+
+  // MARK: - Entertainment Group Configuration
+  
+  private enum EntertainmentKey: String {
+    case entertainmentConfig
+  }
+  
+  /// 娱乐组配置快照 - 用于 App 与 Extension 之间共享
+  struct EntertainmentConfig: Codable, Equatable {
+    var isActive: Bool = false
+    var selectedActivity: FamilyActivitySelection
+    var hourlyLimitMinutes: Int = 15              // 每小时限制（分钟）
+    var dailyLimitMinutes: Int = 120              // 每日总限制（分钟）
+    var restDurationMinutes: Int = 45             // 强制休息时长
+    var enableHourlyLimit: Bool = true            // 启用每小时限制
+    var currentHourUsageMinutes: Int = 0          // 当前小时已用时间
+    var lastResetHour: Int = -1                   // 上次重置的小时
+    var todayTotalUsageMinutes: Int = 0           // 今日总使用时间
+    var lastResetDate: Date?                      // 上次重置日期
+    var shieldMessage: String = "Enjoy your time!"
+    var enableWeekends: Bool = true               // 周末生效
+  }
+  
+  static var entertainmentConfig: EntertainmentConfig? {
+    get {
+      guard let data = suite.data(forKey: EntertainmentKey.entertainmentConfig.rawValue) else { return nil }
+      return try? JSONDecoder().decode(EntertainmentConfig.self, from: data)
+    }
+    set {
+      if let data = try? JSONEncoder().encode(newValue) {
+        suite.set(data, forKey: EntertainmentKey.entertainmentConfig.rawValue)
+      } else {
+        suite.removeObject(forKey: EntertainmentKey.entertainmentConfig.rawValue)
+      }
+    }
+  }
+  
+  static func updateEntertainmentUsage(addMinutes: Int) {
+    guard var config = entertainmentConfig else { return }
+    config.currentHourUsageMinutes += addMinutes
+    config.todayTotalUsageMinutes += addMinutes
+    entertainmentConfig = config
+  }
+  
+  static func resetEntertainmentHourlyUsage() {
+    guard var config = entertainmentConfig else { return }
+    let currentHour = Calendar.current.component(.hour, from: Date())
+    if config.lastResetHour != currentHour {
+      config.currentHourUsageMinutes = 0
+      config.lastResetHour = currentHour
+      entertainmentConfig = config
+    }
+  }
+  
+  static func resetEntertainmentDailyUsage() {
+    guard var config = entertainmentConfig else { return }
+    let today = Calendar.current.startOfDay(for: Date())
+    if let lastReset = config.lastResetDate, Calendar.current.isDate(lastReset, inSameDayAs: today) {
+      return // Already reset today
+    }
+    config.todayTotalUsageMinutes = 0
+    config.currentHourUsageMinutes = 0
+    config.lastResetDate = today
+    entertainmentConfig = config
+  }
 }

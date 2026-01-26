@@ -1,12 +1,52 @@
 import SwiftUI
 import SwiftData
+import FamilyControls
+import ManagedSettings
 
 /// 场景: 娱乐组配置页面 (Entertainment Group)
-/// 支持设置周末或假期App每日总使用时长、每小时单次使用时长限制
+/// 完整流程实现：权限检查 → App选择 → 每小时15分钟限制 → 激活屏蔽 → 日志追踪
 struct EntertainmentGroupConfigView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var logMessages: [LogMessage] = []
+    
+    // MARK: - 流程阶段
+    enum ConfigurationStep: Int, CaseIterable {
+        case authorization = 0
+        case appSelection = 1
+        case timeSettings = 2
+        case activation = 3
+        
+        var title: String {
+            switch self {
+            case .authorization: return "权限检查"
+            case .appSelection: return "选择App"
+            case .timeSettings: return "时间设置"
+            case .activation: return "激活配置"
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .authorization: return "checkmark.shield"
+            case .appSelection: return "apps.iphone"
+            case .timeSettings: return "clock"
+            case .activation: return "play.circle"
+            }
+        }
+    }
+    
+    @State private var currentStep: ConfigurationStep = .authorization
+    @State private var isConfigurationActive = false
+    
+    // MARK: - 权限状态
+    @State private var authorizationChecked = false
+    @State private var isAuthorized = false
+    
+    // MARK: - App选择 (FamilyActivitySelection)
+    @State private var selectedActivity = FamilyActivitySelection()
+    @State private var showAppPicker = false
+    @State private var entertainmentCategories: Set<String> = ["Games", "Social", "Entertainment"]
     
     // MARK: - 假期选择
     @State private var enableWeekends = true              // 周末生效
@@ -16,19 +56,21 @@ struct EntertainmentGroupConfigView: View {
     @State private var showCustomDatePicker = false
     @State private var tempSelectedDate = Date()
     
-    // MARK: - 娱乐限制设置
+    // MARK: - 娱乐限制设置 (默认每小时15分钟)
+    @State private var hourlyTimeLimit = 15               // 每小时可用时长（分钟）- 默认15分钟
     @State private var dailyTimeLimit = 120               // 每日总时长（分钟）
-    @State private var singleSessionLimit = 30            // 单次时长（分钟）
+    @State private var singleSessionLimit = 15            // 单次时长（分钟）- 默认与每小时限制匹配
+    @State private var enableHourlyLimit = true           // 启用每小时限制
     
     // 延长使用设置
     @State private var enableExtension = true             // 允许延长使用
     @State private var extensionCount = 2                 // 延长次数
-    @State private var extensionMinutes = 10              // 每次延长时间
+    @State private var extensionMinutes = 5               // 每次延长时间（改为5分钟）
     
     // 休息强制设置
     @State private var enableRestBlock = true             // 启用休息强制
     @State private var blockAllAppsWhenRest = false       // 休息时屏蔽所有App
-    @State private var restReminderInterval = 60          // 提醒间隔（分钟）
+    @State private var restDurationMinutes = 45           // 强制休息时长（分钟）- 每小时剩余45分钟
     @State private var restReminderMessage = "Time to take a break!"
     
     private let restMessages = [
@@ -41,12 +83,12 @@ struct EntertainmentGroupConfigView: View {
     // 活动任务设置
     @State private var enableActivityTasks = false        // 启用活动任务
     @State private var selectedTasks: Set<String> = []    // 选择的任务
-    @State private var extraTimePerTask = 10              // 每个任务额外时间
+    @State private var extraTimePerTask = 5               // 每个任务额外时间（改为5分钟）
     
     // MARK: - Shield 设置
     @State private var shieldMessage = "Enjoy your time!"
     @State private var shieldColor: Color = .green
-    @State private var shieldButtonAction = "extend10" // extend10 / openTask
+    @State private var shieldButtonAction = "extend5" // extend5 / openTask
     
     private let shieldMessages = [
         "Enjoy your time!",
@@ -55,25 +97,107 @@ struct EntertainmentGroupConfigView: View {
         "Having fun? Don't forget to rest!"
     ]
     
+    // MARK: - 测试与模拟
+    @State private var isSimulatingUsage = false
+    @State private var simulatedUsageMinutes = 0
+    @State private var simulationTimer: Timer?
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                // MARK: - 流程步骤指示器
+                StepProgressView(
+                    steps: ConfigurationStep.allCases.map { ($0.icon, $0.title) },
+                    currentStep: currentStep.rawValue
+                )
+                .padding(.horizontal)
+                
                 // MARK: - 场景描述
                 DemoSectionView(title: "📖 场景描述", icon: "doc.text") {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("**娱乐组配置**支持设置周末或假期App每日总使用时长、每小时单次使用时长限制，平衡娱乐与健康。")
+                        Text("**娱乐组配置**实现完整的屏幕时间管理流程：")
                         
                         Text("**核心功能：**")
-                        BulletPointView(text: "周末/假期专属娱乐时间配额")
-                        BulletPointView(text: "单次使用后强制休息")
-                        BulletPointView(text: "可延长使用时间（有限次数）")
-                        BulletPointView(text: "完成活动任务赚取额外时间")
+                        BulletPointView(text: "✅ 权限检查 - Screen Time 授权")
+                        BulletPointView(text: "✅ App选择 - FamilyActivityPicker 集成")
+                        BulletPointView(text: "✅ 每小时15分钟默认限制")
+                        BulletPointView(text: "✅ 周末/假期专属娱乐时间配额")
+                        BulletPointView(text: "✅ 单次使用后强制休息")
+                        BulletPointView(text: "✅ 完整日志追踪和测试")
                         
-                        Text("**适用场景：**")
-                        BulletPointView(text: "儿童/青少年周末娱乐管理")
-                        BulletPointView(text: "假期游戏时间控制")
-                        BulletPointView(text: "培养健康娱乐习惯")
+                        // 当前状态卡片
+                        HStack(spacing: 12) {
+                            StatusCardView(
+                                icon: isAuthorized ? "checkmark.shield.fill" : "shield.slash",
+                                title: "权限",
+                                value: isAuthorized ? "已授权" : "未授权",
+                                color: isAuthorized ? .green : .red
+                            )
+                            
+                            StatusCardView(
+                                icon: "apps.iphone",
+                                title: "已选App",
+                                value: "\(FamilyActivityUtil.countSelectedActivities(selectedActivity))个",
+                                color: .blue
+                            )
+                            
+                            StatusCardView(
+                                icon: "clock.fill",
+                                title: "每小时",
+                                value: "\(hourlyTimeLimit)分钟",
+                                color: .orange
+                            )
+                        }
                     }
+                }
+                
+                // MARK: - Step 1: 权限检查
+                DemoSectionView(title: "🔐 Step 1: 权限检查", icon: "checkmark.shield") {
+                    AuthorizationCheckSectionView(
+                        isAuthorized: isAuthorized,
+                        authorizationChecked: authorizationChecked,
+                        onCheckAuthorization: checkAuthorization,
+                        onRequestAuthorization: requestAuthorization,
+                        logMessages: logMessages
+                    )
+                }
+                
+                // MARK: - Step 2: App选择
+                DemoSectionView(title: "📱 Step 2: 选择娱乐App", icon: "apps.iphone") {
+                    AppSelectionSectionView(
+                        isAuthorized: isAuthorized,
+                        selectedActivity: $selectedActivity,
+                        showAppPicker: $showAppPicker,
+                        entertainmentCategories: entertainmentCategories,
+                        onSelectionChanged: { count in
+                            addLog("📱 已选择 \(count) 个App/类别", type: .success)
+                            if currentStep == .appSelection && count > 0 {
+                                currentStep = .timeSettings
+                            }
+                        }
+                    )
+                }
+                .familyActivityPicker(
+                    isPresented: $showAppPicker,
+                    selection: $selectedActivity
+                )
+                .onChange(of: selectedActivity) { _, newValue in
+                    let count = FamilyActivityUtil.countSelectedActivities(newValue)
+                    addLog("📱 App选择更新: \(count) 个项目", type: .info)
+                }
+                
+                // MARK: - Step 3: 每小时15分钟限制设置
+                DemoSectionView(title: "⏱️ Step 3: 每小时15分钟限制", icon: "clock") {
+                    HourlyLimitSectionView(
+                        enableHourlyLimit: $enableHourlyLimit,
+                        hourlyTimeLimit: $hourlyTimeLimit,
+                        restDurationMinutes: $restDurationMinutes,
+                        dailyTimeLimit: $dailyTimeLimit,
+                        singleSessionLimit: $singleSessionLimit,
+                        onSettingsChanged: { setting, value in
+                            addLog("⏱️ \(setting): \(value)", type: .info)
+                        }
+                    )
                 }
                 
                 // MARK: - 依赖组件
@@ -379,13 +503,13 @@ struct EntertainmentGroupConfigView: View {
                                 }
                                 
                                 DurationPickerView(
-                                    title: "休息提醒间隔",
+                                    title: "强制休息时长",
                                     icon: "bell.badge",
-                                    selectedMinutes: $restReminderInterval,
-                                    options: [30, 60, 90, 120]
+                                    selectedMinutes: $restDurationMinutes,
+                                    options: [30, 45, 50, 55]
                                 )
-                                .onChange(of: restReminderInterval) { _, newValue in
-                                    addLog("🔔 休息提醒间隔设置为 \(newValue) 分钟", type: .info)
+                                .onChange(of: restDurationMinutes) { _, newValue in
+                                    addLog("😌 强制休息时长设置为 \(newValue) 分钟", type: .info)
                                 }
                                 
                                 // 休息提醒消息
@@ -538,191 +662,30 @@ struct EntertainmentGroupConfigView: View {
                     }
                 }
                 
-                // MARK: - 代码示例
-                DemoSectionView(title: "💻 核心代码", icon: "chevron.left.forwardslash.chevron.right") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        ScenarioCardView(
-                            title: "1. 检测是否为娱乐日",
-                            description: "周末/假期/自定义日期检查",
-                            code: """
-// 检测今天是否应用娱乐组配置
-func isEntertainmentDay() -> Bool {
-    let calendar = Calendar.current
-    let today = Date()
-    
-    // 检查周末
-    if enableWeekends {
-        let weekday = calendar.component(.weekday, from: today)
-        if weekday == 1 || weekday == 7 { // 周日或周六
-            return true
-        }
-    }
-    
-    // 检查假期列表
-    let todayStart = calendar.startOfDay(for: today)
-    if selectedHolidays.contains(where: {
-        calendar.startOfDay(for: $0) == todayStart
-    }) {
-        return true
-    }
-    
-    // 检查自定义日期
-    if selectedCustomDates.contains(where: {
-        calendar.startOfDay(for: $0) == todayStart
-    }) {
-        return true
-    }
-    
-    return false
-}
-"""
-                        )
-                        
-                        ScenarioCardView(
-                            title: "2. 延长使用时间实现",
-                            description: "Shield按钮扩展使用时间",
-                            code: """
-// 在 ShieldActionExtension 中处理延长请求
-func handle(
-    action: ShieldAction,
-    for application: ApplicationToken,
-    completionHandler: @escaping (ShieldActionResponse) -> Void
-) {
-    guard action == .primaryButtonPressed else {
-        completionHandler(.close)
-        return
-    }
-    
-    // 检查延长次数
-    let remainingExtensions = getRemainingExtensions()
-    guard remainingExtensions > 0 else {
-        completionHandler(.close)
-        return
-    }
-    
-    // 消耗一次延长机会
-    decrementExtensionCount()
-    
-    // 临时解除屏蔽
-    let store = ManagedSettingsStore()
-    store.shield.applications = nil
-    
-    // 设置延长计时器
-    scheduleReblock(after: extensionMinutes * 60)
-    
-    completionHandler(.close)
-}
-"""
-                        )
-                        
-                        ScenarioCardView(
-                            title: "3. 强制休息实现",
-                            description: "单次使用后启动休息",
-                            code: """
-// 达到单次使用时长后强制休息
-func enforceRest(for profile: BlockedProfiles) {
-    // 激活屏蔽
-    let appBlocker = AppBlockerUtil()
-    
-    if blockAllAppsWhenRest {
-        // 屏蔽所有应用
-        appBlocker.activateRestrictions(for: allAppsSelection)
-    } else {
-        // 仅屏蔽娱乐应用
-        appBlocker.activateRestrictions(for: profile)
-    }
-    
-    // 启动休息计时器
-    let breakTimer = BreakTimerActivity()
-    breakTimer.start(for: profile)
-    
-    // 发送休息提醒
-    let timersUtil = TimersUtil()
-    timersUtil.scheduleNotification(
-        title: "休息时间",
-        message: restReminderMessage,
-        seconds: 0,
-        identifier: "rest_start"
-    )
-}
-"""
-                        )
-                        
-                        ScenarioCardView(
-                            title: "4. 活动任务奖励",
-                            description: "完成任务获取额外时间",
-                            code: """
-// 完成活动任务后奖励额外时间
-func rewardTaskCompletion(taskId: String) {
-    guard selectedTasks.contains(taskId) else { return }
-    
-    // 增加可用时间
-    let currentQuota = UserDefaults.standard.integer(
-        forKey: "entertainment_quota"
-    )
-    let newQuota = currentQuota + extraTimePerTask * 60
-    UserDefaults.standard.set(newQuota, forKey: "entertainment_quota")
-    
-    // 标记任务完成
-    var completedTasks = UserDefaults.standard.stringArray(
-        forKey: "completed_tasks_today"
-    ) ?? []
-    completedTasks.append(taskId)
-    UserDefaults.standard.set(
-        completedTasks,
-        forKey: "completed_tasks_today"
-    )
-    
-    // 发送奖励通知
-    sendRewardNotification(minutes: extraTimePerTask)
-}
-"""
-                        )
-                    }
+                // MARK: - Step 4: 激活与测试
+                DemoSectionView(title: "🚀 Step 4: 激活与测试", icon: "play.circle") {
+                    ActivationTestSectionView(
+                        isConfigurationActive: $isConfigurationActive,
+                        isAuthorized: isAuthorized,
+                        selectedActivityCount: FamilyActivityUtil.countSelectedActivities(selectedActivity),
+                        hourlyTimeLimit: hourlyTimeLimit,
+                        isSimulatingUsage: $isSimulatingUsage,
+                        simulatedUsageMinutes: $simulatedUsageMinutes,
+                        onActivate: activateConfiguration,
+                        onDeactivate: deactivateConfiguration,
+                        onStartSimulation: startUsageSimulation,
+                        onStopSimulation: stopUsageSimulation,
+                        addLog: addLog
+                    )
+                }
+                
+                // MARK: - 测试用例说明
+                DemoSectionView(title: "🧪 测试用例说明", icon: "checklist") {
+                    TestCasesDocumentationView()
                 }
                 
                 // MARK: - 日志输出
                 DemoLogView(messages: logMessages)
-                
-                // MARK: - 改进建议
-                DemoSectionView(title: "💡 改进建议", icon: "lightbulb") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        ImprovementCardView(
-                            priority: .high,
-                            title: "实现活动任务系统",
-                            description: "需要创建任务管理模块，支持各种任务类型的验证和奖励机制",
-                            relatedFiles: ["新建 TaskManager.swift", "新建 TaskModels.swift"]
-                        )
-                        
-                        ImprovementCardView(
-                            priority: .high,
-                            title: "Shield延长按钮实现",
-                            description: "在ShieldActionExtension中实现延长使用时间的逻辑",
-                            relatedFiles: ["ShieldActionExtension.swift", "SharedData.swift"]
-                        )
-                        
-                        ImprovementCardView(
-                            priority: .medium,
-                            title: "假期日历集成",
-                            description: "集成系统日历或节假日API，自动识别法定假日",
-                            relatedFiles: ["新建 HolidayManager.swift", "EventKit"]
-                        )
-                        
-                        ImprovementCardView(
-                            priority: .medium,
-                            title: "跨日期配额追踪",
-                            description: "需要持久化存储每日使用配额和剩余时间",
-                            relatedFiles: ["SharedData.swift", "BlockedProfiles.swift"]
-                        )
-                        
-                        ImprovementCardView(
-                            priority: .low,
-                            title: "家长监督模式",
-                            description: "允许家长远程查看和调整孩子的娱乐配额",
-                            relatedFiles: ["CloudKit", "新建 FamilySync.swift"]
-                        )
-                    }
-                }
                 
                 // MARK: - 操作按钮
                 ActionButtonsView(
@@ -735,6 +698,14 @@ func rewardTaskCompletion(taskId: String) {
         }
         .navigationTitle("娱乐组配置")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            // 初始化时检查权限状态
+            checkAuthorizationOnAppear()
+        }
+        .onDisappear {
+            // 清理模拟器定时器
+            stopUsageSimulation()
+        }
     }
     
     // MARK: - Private Methods
@@ -745,19 +716,822 @@ func rewardTaskCompletion(taskId: String) {
         return formatter.string(from: date)
     }
     
+    /// 页面出现时检查权限
+    private func checkAuthorizationOnAppear() {
+        let status = AuthorizationCenter.shared.authorizationStatus
+        isAuthorized = (status == .approved)
+        authorizationChecked = true
+        addLog("🔍 初始化权限检查: \(status == .approved ? "已授权" : "未授权")", type: .info)
+    }
+    
+    /// 检查授权状态
+    private func checkAuthorization() {
+        addLog("🔍 正在检查屏幕时间权限...", type: .info)
+        
+        let status = AuthorizationCenter.shared.authorizationStatus
+        authorizationChecked = true
+        
+        switch status {
+        case .approved:
+            isAuthorized = true
+            addLog("✅ 屏幕时间权限已授权", type: .success)
+            currentStep = .appSelection
+        case .denied:
+            isAuthorized = false
+            addLog("❌ 屏幕时间权限被拒绝，请在设置中开启", type: .error)
+        case .notDetermined:
+            isAuthorized = false
+            addLog("⚠️ 屏幕时间权限未决定，请点击请求授权", type: .warning)
+        @unknown default:
+            isAuthorized = false
+            addLog("❓ 未知权限状态", type: .warning)
+        }
+    }
+    
+    /// 请求授权
+    private func requestAuthorization() {
+        addLog("📤 正在请求屏幕时间授权...", type: .info)
+        
+        Task {
+            do {
+                try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+                await MainActor.run {
+                    isAuthorized = true
+                    authorizationChecked = true
+                    addLog("✅ 屏幕时间授权成功！", type: .success)
+                    currentStep = .appSelection
+                }
+            } catch {
+                await MainActor.run {
+                    isAuthorized = false
+                    authorizationChecked = true
+                    addLog("❌ 授权失败: \(error.localizedDescription)", type: .error)
+                }
+            }
+        }
+    }
+    
+    /// 激活配置
+    private func activateConfiguration() {
+        guard isAuthorized else {
+            addLog("❌ 无法激活：未获得屏幕时间授权", type: .error)
+            return
+        }
+        
+        let appCount = FamilyActivityUtil.countSelectedActivities(selectedActivity)
+        guard appCount > 0 else {
+            addLog("❌ 无法激活：未选择任何App", type: .error)
+            return
+        }
+        
+        addLog("🚀 正在激活娱乐组配置...", type: .info)
+        addLog("📱 屏蔽App数量: \(appCount)", type: .info)
+        addLog("⏱️ 每小时限制: \(hourlyTimeLimit)分钟", type: .info)
+        addLog("😌 强制休息: \(restDurationMinutes)分钟/小时", type: .info)
+        
+        // 1. 保存配置到 SharedData，供 Extension 访问
+        let entertainmentConfig = SharedData.EntertainmentConfig(
+            isActive: true,
+            selectedActivity: selectedActivity,
+            hourlyLimitMinutes: hourlyTimeLimit,
+            dailyLimitMinutes: dailyTimeLimit,
+            restDurationMinutes: restDurationMinutes,
+            enableHourlyLimit: enableHourlyLimit,
+            currentHourUsageMinutes: 0,
+            lastResetHour: Calendar.current.component(.hour, from: Date()),
+            todayTotalUsageMinutes: 0,
+            lastResetDate: Date(),
+            shieldMessage: shieldMessage,
+            enableWeekends: enableWeekends
+        )
+        SharedData.entertainmentConfig = entertainmentConfig
+        addLog("💾 配置已保存到 App Group", type: .info)
+        
+        // 2. 启动 DeviceActivityCenter 监控（带阈值事件）
+        if enableHourlyLimit {
+            DeviceActivityCenterUtil.startEntertainmentHourlyMonitoring(
+                selection: selectedActivity,
+                hourlyLimitMinutes: hourlyTimeLimit
+            )
+            addLog("📡 每小时 \(hourlyTimeLimit) 分钟限制监控已启动", type: .success)
+            addLog("   - 已创建 24 个独立的小时监控区间", type: .info)
+            addLog("   - 每个小时开始时自动重置使用时间", type: .info)
+            addLog("   - 当使用达到 \(hourlyTimeLimit) 分钟时将触发 Shield", type: .info)
+            if hourlyTimeLimit > 5 {
+                addLog("   - 警告将在剩余 5 分钟时显示", type: .info)
+            }
+        }
+        
+        addLog("📊 配置摘要:", type: .info)
+        addLog("   - Apps: \(selectedActivity.applicationTokens.count)", type: .info)
+        addLog("   - Categories: \(selectedActivity.categoryTokens.count)", type: .info)
+        addLog("   - Websites: \(selectedActivity.webDomainTokens.count)", type: .info)
+        
+        isConfigurationActive = true
+        currentStep = .activation
+        addLog("✅ 娱乐组配置激活成功！", type: .success)
+        addLog("💡 提示: 使用选定的娱乐App累计 \(hourlyTimeLimit) 分钟后将被屏蔽", type: .info)
+    }
+    
+    /// 停用配置
+    private func deactivateConfiguration() {
+        addLog("🛑 正在停用娱乐组配置...", type: .info)
+        
+        // 1. 停止 DeviceActivityCenter 监控
+        DeviceActivityCenterUtil.stopEntertainmentMonitoring()
+        addLog("📡 监控已停止", type: .info)
+        
+        // 2. 清除 SharedData 中的配置
+        if var config = SharedData.entertainmentConfig {
+            config.isActive = false
+            SharedData.entertainmentConfig = config
+        }
+        addLog("💾 配置状态已更新", type: .info)
+        
+        // 3. 清除任何现有的屏蔽
+        let appBlocker = AppBlockerUtil()
+        appBlocker.deactivateRestrictions()
+        
+        isConfigurationActive = false
+        stopUsageSimulation()
+        addLog("✅ 娱乐组配置已停用", type: .success)
+    }
+    
+    /// 开始使用时间模拟
+    private func startUsageSimulation() {
+        guard isConfigurationActive else {
+            addLog("❌ 请先激活配置", type: .error)
+            return
+        }
+        
+        isSimulatingUsage = true
+        simulatedUsageMinutes = 0
+        addLog("▶️ 开始模拟使用时间...", type: .info)
+        
+        // 每秒增加1分钟（加速模拟）
+        simulationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] _ in
+            Task { @MainActor in
+                simulatedUsageMinutes += 1
+                
+                // 检查是否达到每小时限制
+                if simulatedUsageMinutes >= hourlyTimeLimit {
+                    addLog("⏰ 已达到每小时\(hourlyTimeLimit)分钟限制！", type: .warning)
+                    addLog("🔒 触发强制休息 \(restDurationMinutes) 分钟", type: .info)
+                    stopUsageSimulation()
+                    
+                    // 模拟Shield显示
+                    addLog("🛡️ Shield已显示: \"\(shieldMessage)\"", type: .info)
+                } else if simulatedUsageMinutes == hourlyTimeLimit - 5 {
+                    addLog("⚠️ 剩余5分钟，即将达到限制", type: .warning)
+                } else if simulatedUsageMinutes == hourlyTimeLimit - 1 {
+                    addLog("⚠️ 剩余1分钟！", type: .warning)
+                }
+            }
+        }
+    }
+    
+    /// 停止使用时间模拟
+    private func stopUsageSimulation() {
+        simulationTimer?.invalidate()
+        simulationTimer = nil
+        isSimulatingUsage = false
+        if simulatedUsageMinutes > 0 {
+            addLog("⏹️ 模拟停止，已使用 \(simulatedUsageMinutes) 分钟", type: .info)
+        }
+    }
+    
     private func saveConfiguration() {
         addLog("💾 正在保存娱乐组配置...", type: .info)
+        addLog("🔐 权限状态: \(isAuthorized ? "已授权" : "未授权")", type: isAuthorized ? .success : .warning)
+        addLog("📱 已选App: \(FamilyActivityUtil.countSelectedActivities(selectedActivity))个", type: .success)
+        addLog("⏱️ 每小时限制: \(hourlyTimeLimit)分钟", type: .success)
         addLog("📅 周末生效: \(enableWeekends ? "是" : "否")", type: .success)
         addLog("⏱️ 每日时长: \(dailyTimeLimit)分钟", type: .success)
         addLog("⏱️ 单次时长: \(singleSessionLimit)分钟", type: .success)
         addLog("⏰ 延长设置: \(enableExtension ? "\(extensionCount)次×\(extensionMinutes)分钟" : "禁用")", type: .success)
-        addLog("😌 强制休息: \(enableRestBlock ? "开启" : "关闭")", type: .success)
+        addLog("😌 强制休息: \(enableRestBlock ? "\(restDurationMinutes)分钟/小时" : "关闭")", type: .success)
         addLog("🎯 活动任务: \(enableActivityTasks ? "\(selectedTasks.count)个任务" : "禁用")", type: .success)
         addLog("✅ 配置保存成功!", type: .success)
     }
     
     private func addLog(_ message: String, type: LogType) {
         logMessages.insert(LogMessage(message: message, type: type), at: 0)
+    }
+}
+
+// MARK: - Step Progress View
+struct StepProgressView: View {
+    let steps: [(icon: String, title: String)]
+    let currentStep: Int
+    
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                HStack(spacing: 4) {
+                    ZStack {
+                        Circle()
+                            .fill(index <= currentStep ? Color.accentColor : Color(.systemGray4))
+                            .frame(width: 32, height: 32)
+                        
+                        if index < currentStep {
+                            Image(systemName: "checkmark")
+                                .font(.caption.bold())
+                                .foregroundColor(.white)
+                        } else {
+                            Image(systemName: step.icon)
+                                .font(.caption2)
+                                .foregroundColor(index <= currentStep ? .white : .secondary)
+                        }
+                    }
+                    
+                    if index < steps.count - 1 {
+                        Rectangle()
+                            .fill(index < currentStep ? Color.accentColor : Color(.systemGray4))
+                            .frame(height: 2)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 8)
+    }
+}
+
+// MARK: - Status Card View
+struct StatusCardView: View {
+    let icon: String
+    let title: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(color)
+            Text(value)
+                .font(.caption.bold())
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(color.opacity(0.1))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Authorization Check Section
+struct AuthorizationCheckSectionView: View {
+    let isAuthorized: Bool
+    let authorizationChecked: Bool
+    let onCheckAuthorization: () -> Void
+    let onRequestAuthorization: () -> Void
+    let logMessages: [LogMessage]
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // 权限状态显示
+            HStack {
+                Image(systemName: isAuthorized ? "checkmark.shield.fill" : "shield.slash")
+                    .font(.title)
+                    .foregroundColor(isAuthorized ? .green : .red)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(isAuthorized ? "屏幕时间已授权" : "屏幕时间未授权")
+                        .font(.headline)
+                    Text(isAuthorized ? "可以使用App屏蔽功能" : "需要授权才能使用屏蔽功能")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+            }
+            .padding()
+            .background(isAuthorized ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
+            .cornerRadius(10)
+            
+            // 操作按钮
+            HStack(spacing: 12) {
+                Button {
+                    onCheckAuthorization()
+                } label: {
+                    Label("检查权限", systemImage: "magnifyingglass")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                
+                if !isAuthorized {
+                    Button {
+                        onRequestAuthorization()
+                    } label: {
+                        Label("请求授权", systemImage: "hand.raised")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            
+            // 权限说明
+            VStack(alignment: .leading, spacing: 8) {
+                Text("权限说明")
+                    .font(.subheadline.bold())
+                
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.blue)
+                    Text("需要「屏幕时间」权限来检测和限制App使用。授权后可以选择要限制的App并设置使用时间。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(8)
+        }
+    }
+}
+
+// MARK: - App Selection Section
+struct AppSelectionSectionView: View {
+    let isAuthorized: Bool
+    @Binding var selectedActivity: FamilyActivitySelection
+    @Binding var showAppPicker: Bool
+    let entertainmentCategories: Set<String>
+    let onSelectionChanged: (Int) -> Void
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            if !isAuthorized {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundColor(.orange)
+                    Text("请先完成权限授权")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            } else {
+                // 已选择的App统计
+                let count = FamilyActivityUtil.countSelectedActivities(selectedActivity)
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("已选择 \(count) 个项目")
+                            .font(.headline)
+                        Text("包含 \(selectedActivity.applicationTokens.count) 个App, \(selectedActivity.categoryTokens.count) 个类别")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button {
+                        showAppPicker = true
+                    } label: {
+                        Label(count > 0 ? "修改" : "选择", systemImage: "plus.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
+                
+                // 预设娱乐类别提示
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("💡 推荐选择娱乐类App")
+                        .font(.subheadline.bold())
+                    
+                    Text("建议选择：游戏、社交媒体、视频、娱乐等类别的App进行限制")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    
+                    FlowLayout(spacing: 6) {
+                        ForEach(Array(entertainmentCategories), id: \.self) { category in
+                            Text(category)
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.purple.opacity(0.15))
+                                .foregroundColor(.purple)
+                                .cornerRadius(12)
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+            }
+        }
+    }
+}
+
+// MARK: - Hourly Limit Section
+struct HourlyLimitSectionView: View {
+    @Binding var enableHourlyLimit: Bool
+    @Binding var hourlyTimeLimit: Int
+    @Binding var restDurationMinutes: Int
+    @Binding var dailyTimeLimit: Int
+    @Binding var singleSessionLimit: Int
+    let onSettingsChanged: (String, String) -> Void
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // 每小时限制开关
+            ToggleSettingRow(
+                title: "启用每小时限制",
+                subtitle: "每小时内App使用不超过设定时间",
+                icon: "clock.badge.checkmark",
+                isOn: $enableHourlyLimit,
+                iconColor: .orange
+            )
+            .onChange(of: enableHourlyLimit) { _, newValue in
+                onSettingsChanged("每小时限制", newValue ? "开启" : "关闭")
+            }
+            
+            if enableHourlyLimit {
+                // 每小时可用时长
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Label("每小时可用时长", systemImage: "timer")
+                            .font(.subheadline)
+                        Spacer()
+                        
+                        Picker("", selection: $hourlyTimeLimit) {
+                            Text("10 分钟").tag(10)
+                            Text("15 分钟").tag(15)
+                            Text("20 分钟").tag(20)
+                            Text("30 分钟").tag(30)
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    
+                    // 可视化时间分配
+                    HourlyTimeVisualization(
+                        usableMinutes: hourlyTimeLimit,
+                        restMinutes: 60 - hourlyTimeLimit
+                    )
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
+                .onChange(of: hourlyTimeLimit) { _, newValue in
+                    restDurationMinutes = 60 - newValue
+                    singleSessionLimit = newValue
+                    onSettingsChanged("每小时可用时长", "\(newValue)分钟")
+                }
+                
+                // 说明卡片
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "lightbulb.fill")
+                        .foregroundColor(.yellow)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("每小时 \(hourlyTimeLimit) 分钟规则")
+                            .font(.subheadline.bold())
+                        Text("每小时内可使用娱乐App \(hourlyTimeLimit) 分钟，之后强制休息 \(60 - hourlyTimeLimit) 分钟。下一个小时开始时配额自动重置。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding()
+                .background(Color.yellow.opacity(0.1))
+                .cornerRadius(8)
+            }
+            
+            // 每日总时长
+            DurationPickerView(
+                title: "每日总时长上限",
+                icon: "hourglass",
+                selectedMinutes: $dailyTimeLimit,
+                options: [60, 90, 120, 180, 240]
+            )
+            .onChange(of: dailyTimeLimit) { _, newValue in
+                onSettingsChanged("每日总时长", "\(newValue)分钟")
+            }
+        }
+    }
+}
+
+// MARK: - Hourly Time Visualization
+struct HourlyTimeVisualization: View {
+    let usableMinutes: Int
+    let restMinutes: Int
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            // 进度条
+            GeometryReader { geometry in
+                HStack(spacing: 2) {
+                    // 可用时间（绿色）
+                    Rectangle()
+                        .fill(Color.green)
+                        .frame(width: geometry.size.width * CGFloat(usableMinutes) / 60)
+                    
+                    // 休息时间（灰色）
+                    Rectangle()
+                        .fill(Color(.systemGray4))
+                        .frame(width: geometry.size.width * CGFloat(restMinutes) / 60)
+                }
+                .cornerRadius(4)
+            }
+            .frame(height: 20)
+            
+            // 图例
+            HStack(spacing: 16) {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 10, height: 10)
+                    Text("可用 \(usableMinutes)分钟")
+                        .font(.caption)
+                }
+                
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color(.systemGray4))
+                        .frame(width: 10, height: 10)
+                    Text("休息 \(restMinutes)分钟")
+                        .font(.caption)
+                }
+                
+                Spacer()
+            }
+        }
+    }
+}
+
+// MARK: - Activation Test Section
+struct ActivationTestSectionView: View {
+    @Binding var isConfigurationActive: Bool
+    let isAuthorized: Bool
+    let selectedActivityCount: Int
+    let hourlyTimeLimit: Int
+    @Binding var isSimulatingUsage: Bool
+    @Binding var simulatedUsageMinutes: Int
+    let onActivate: () -> Void
+    let onDeactivate: () -> Void
+    let onStartSimulation: () -> Void
+    let onStopSimulation: () -> Void
+    let addLog: (String, LogType) -> Void
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // 配置状态
+            HStack {
+                Image(systemName: isConfigurationActive ? "checkmark.circle.fill" : "circle")
+                    .font(.title2)
+                    .foregroundColor(isConfigurationActive ? .green : .secondary)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isConfigurationActive ? "配置已激活" : "配置未激活")
+                        .font(.headline)
+                    Text(isConfigurationActive ? "娱乐App已被限制" : "点击激活开始限制")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+            }
+            .padding()
+            .background(isConfigurationActive ? Color.green.opacity(0.1) : Color(.systemGray6))
+            .cornerRadius(10)
+            
+            // 激活/停用按钮
+            HStack(spacing: 12) {
+                if isConfigurationActive {
+                    Button {
+                        onDeactivate()
+                    } label: {
+                        Label("停用", systemImage: "stop.circle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.red)
+                } else {
+                    Button {
+                        onActivate()
+                    } label: {
+                        Label("激活配置", systemImage: "play.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!isAuthorized || selectedActivityCount == 0)
+                }
+            }
+            
+            // 模拟器测试
+            if isConfigurationActive {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("🧪 模拟器测试")
+                        .font(.subheadline.bold())
+                    
+                    // 模拟进度
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text("模拟使用时间")
+                                .font(.caption)
+                            Spacer()
+                            Text("\(simulatedUsageMinutes) / \(hourlyTimeLimit) 分钟")
+                                .font(.caption.bold())
+                                .foregroundColor(simulatedUsageMinutes >= hourlyTimeLimit ? .red : .primary)
+                        }
+                        
+                        ProgressView(value: Double(simulatedUsageMinutes), total: Double(hourlyTimeLimit))
+                            .tint(simulatedUsageMinutes >= hourlyTimeLimit ? .red : .green)
+                    }
+                    
+                    // 模拟控制
+                    HStack(spacing: 12) {
+                        if isSimulatingUsage {
+                            Button {
+                                onStopSimulation()
+                            } label: {
+                                Label("停止模拟", systemImage: "stop.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.orange)
+                        } else {
+                            Button {
+                                onStartSimulation()
+                            } label: {
+                                Label("开始模拟", systemImage: "play.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.blue)
+                        }
+                        
+                        Button {
+                            // 重置模拟
+                            onStopSimulation()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                addLog("🔄 模拟已重置", .info)
+                            }
+                        } label: {
+                            Label("重置", systemImage: "arrow.counterclockwise")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    
+                    Text("模拟器以1秒=1分钟的速度运行，用于快速测试每小时限制逻辑")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
+            }
+            
+            // 前置条件检查
+            if !isAuthorized || selectedActivityCount == 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("⚠️ 激活前置条件")
+                        .font(.subheadline.bold())
+                    
+                    HStack(spacing: 8) {
+                        Image(systemName: isAuthorized ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundColor(isAuthorized ? .green : .red)
+                        Text("屏幕时间权限")
+                            .font(.caption)
+                    }
+                    
+                    HStack(spacing: 8) {
+                        Image(systemName: selectedActivityCount > 0 ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundColor(selectedActivityCount > 0 ? .green : .red)
+                        Text("选择至少1个App")
+                            .font(.caption)
+                    }
+                }
+                .padding()
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
+    }
+}
+
+// MARK: - Test Cases Documentation
+struct TestCasesDocumentationView: View {
+    @State private var expandedCase: Int? = nil
+    
+    let testCases = [
+        (
+            id: 1,
+            title: "TC-001: 权限请求流程",
+            steps: """
+            1. 启动App，进入娱乐组配置
+            2. 点击「检查权限」按钮
+            3. 如未授权，点击「请求授权」
+            4. 系统弹出授权对话框
+            5. 选择「允许」
+            预期结果：权限状态变为「已授权」
+            """,
+            status: "Ready"
+        ),
+        (
+            id: 2,
+            title: "TC-002: App选择功能",
+            steps: """
+            1. 完成权限授权
+            2. 点击「选择」按钮
+            3. 在FamilyActivityPicker中选择娱乐类App
+            4. 确认选择
+            预期结果：显示已选择的App数量
+            """,
+            status: "Ready"
+        ),
+        (
+            id: 3,
+            title: "TC-003: 每小时15分钟限制",
+            steps: """
+            1. 设置每小时限制为15分钟
+            2. 激活配置
+            3. 使用模拟器测试
+            4. 等待模拟到15分钟
+            预期结果：触发强制休息，显示Shield
+            """,
+            status: "Ready"
+        ),
+        (
+            id: 4,
+            title: "TC-004: 强制休息验证",
+            steps: """
+            1. 达到每小时限制后
+            2. 验证Shield显示
+            3. 等待休息时间结束
+            4. 验证配额重置
+            预期结果：下一小时可继续使用15分钟
+            """,
+            status: "Planned"
+        ),
+        (
+            id: 5,
+            title: "TC-005: 模拟器快速测试",
+            steps: """
+            1. 激活配置
+            2. 点击「开始模拟」
+            3. 观察日志输出
+            4. 验证限制触发时机
+            预期结果：日志显示正确的限制触发
+            """,
+            status: "Ready"
+        )
+    ]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("以下测试用例可在模拟器中验证：")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            ForEach(testCases, id: \.id) { testCase in
+                VStack(alignment: .leading, spacing: 8) {
+                    Button {
+                        withAnimation {
+                            if expandedCase == testCase.id {
+                                expandedCase = nil
+                            } else {
+                                expandedCase = testCase.id
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            StatusBadgeView(
+                                testCase.status,
+                                color: testCase.status == "Ready" ? .green : .orange
+                            )
+                            
+                            Text(testCase.title)
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                            
+                            Spacer()
+                            
+                            Image(systemName: expandedCase == testCase.id ? "chevron.up" : "chevron.down")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    if expandedCase == testCase.id {
+                        Text(testCase.steps)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(6)
+                    }
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(8)
+            }
+        }
     }
 }
 
@@ -800,6 +1574,7 @@ struct DatePickerSheet: View {
     }
 }
 
+// MARK: - Preview
 #Preview {
     NavigationStack {
         EntertainmentGroupConfigView()

@@ -239,4 +239,114 @@ class DeviceActivityCenterUtil {
     let intervalEnd = DateComponents(hour: endHour, minute: endMinute)
     return (intervalStart: intervalStart, intervalEnd: intervalEnd)
   }
+
+  // MARK: - Entertainment Group Hourly Limit Monitoring
+  
+  /// 生成每小时活动名称
+  static func entertainmentActivityName(forHour hour: Int) -> DeviceActivityName {
+    return DeviceActivityName("entertainment_hour_\(hour)")
+  }
+  
+  /// 生成每小时阈值事件名称
+  static func entertainmentThresholdEventName(forHour hour: Int) -> DeviceActivityEvent.Name {
+    return DeviceActivityEvent.Name("entertainment_threshold_hour_\(hour)")
+  }
+  
+  /// 生成每小时警告事件名称
+  static func entertainmentWarningEventName(forHour hour: Int) -> DeviceActivityEvent.Name {
+    return DeviceActivityEvent.Name("entertainment_warning_hour_\(hour)")
+  }
+  
+  /// 获取所有娱乐组活动名称（24小时）
+  static var allEntertainmentActivityNames: [DeviceActivityName] {
+    return (0..<24).map { entertainmentActivityName(forHour: $0) }
+  }
+  
+  /// 启动娱乐组每小时限制监控
+  /// 创建 24 个独立的监控区间（每小时一个），每个区间都有独立的阈值
+  /// - Parameters:
+  ///   - selection: 选择的App/Categories
+  ///   - hourlyLimitMinutes: 每小时限制（分钟），默认15分钟
+  static func startEntertainmentHourlyMonitoring(
+    selection: FamilyActivitySelection,
+    hourlyLimitMinutes: Int = 15
+  ) {
+    let center = DeviceActivityCenter()
+    
+    // 停止任何现有的娱乐组监控
+    stopEntertainmentMonitoring()
+    
+    var successCount = 0
+    var failCount = 0
+    
+    // 为每个小时创建独立的监控
+    // 每个小时 (hour:00 到 hour:59) 都有独立的 15 分钟阈值
+    for hour in 0..<24 {
+      let intervalStart = DateComponents(hour: hour, minute: 0, second: 0)
+      let intervalEnd = DateComponents(hour: hour, minute: 59, second: 59)
+      
+      let schedule = DeviceActivitySchedule(
+        intervalStart: intervalStart,
+        intervalEnd: intervalEnd,
+        repeats: true  // 每天重复
+      )
+      
+      // 阈值事件 - 当该小时使用达到限制时触发
+      let thresholdEvent = DeviceActivityEvent(
+        applications: selection.applicationTokens,
+        categories: selection.categoryTokens,
+        webDomains: selection.webDomainTokens,
+        threshold: DateComponents(minute: hourlyLimitMinutes)
+      )
+      
+      var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [
+        entertainmentThresholdEventName(forHour: hour): thresholdEvent
+      ]
+      
+      // 警告事件（如果限制大于5分钟）
+      if hourlyLimitMinutes > 5 {
+        let warningEvent = DeviceActivityEvent(
+          applications: selection.applicationTokens,
+          categories: selection.categoryTokens,
+          webDomains: selection.webDomainTokens,
+          threshold: DateComponents(minute: hourlyLimitMinutes - 5)
+        )
+        events[entertainmentWarningEventName(forHour: hour)] = warningEvent
+      }
+      
+      do {
+        try center.startMonitoring(
+          entertainmentActivityName(forHour: hour),
+          during: schedule,
+          events: events
+        )
+        successCount += 1
+      } catch {
+        print("❌ Failed to start monitoring for hour \(hour): \(error.localizedDescription)")
+        failCount += 1
+      }
+    }
+    
+    print("✅ Entertainment hourly monitoring started: \(hourlyLimitMinutes) min/hour limit")
+    print("   - Successful hours: \(successCount)/24")
+    if failCount > 0 {
+      print("   - Failed hours: \(failCount)")
+    }
+    print("   - Apps: \(selection.applicationTokens.count)")
+    print("   - Categories: \(selection.categoryTokens.count)")
+    print("   - Websites: \(selection.webDomainTokens.count)")
+  }
+  
+  /// 停止娱乐组监控（停止所有24个小时的监控）
+  static func stopEntertainmentMonitoring() {
+    let center = DeviceActivityCenter()
+    center.stopMonitoring(allEntertainmentActivityNames)
+    print("🛑 Entertainment monitoring stopped for all 24 hours")
+  }
+  
+  /// 检查娱乐组监控是否活跃（至少有一个小时的监控在运行）
+  static func isEntertainmentMonitoringActive() -> Bool {
+    let center = DeviceActivityCenter()
+    return allEntertainmentActivityNames.contains { center.activities.contains($0) }
+  }
 }

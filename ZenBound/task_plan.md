@@ -137,3 +137,76 @@ ZenBound/DemoUI/
 - [x] 测试所有场景
 - [x] 修复编译错误（ZbWidgetAttributes, LiveActivityManager, ShortcutsIntegrationScenarioView）
 - [x] 配置 widgetExtension Info.plist
+
+---
+
+## 🎮 娱乐组配置 - 完整开发 (2025-01-23)
+
+### 已实现功能
+
+#### Step 1: 权限检查
+- ✅ 检测 `AuthorizationCenter.shared.authorizationStatus` 状态
+- ✅ "检查权限" 按钮触发权限状态检测
+- ✅ "请求授权" 按钮调用 `AuthorizationCenter.shared.requestAuthorization(for: .individual)`
+- ✅ 权限状态实时更新 UI（已授权/未授权/待定）
+- ✅ 权限说明文字提供用户指导
+
+#### Step 2: 选择娱乐 App
+- ✅ 使用 `FamilyActivityPicker` 选择要限制的 App
+- ✅ 显示已选择 App 数量
+- ✅ 提供娱乐类分类建议（社交媒体、视频流媒体、游戏）
+- ✅ 权限未授权时显示提示，禁用选择功能
+
+#### Step 3: 每小时15分钟限制
+- ✅ 默认设置每小时可用时长为 **15分钟**
+- ✅ 可切换启用/禁用每小时限制
+- ✅ 时长选择器（5/10/15/20/30分钟）
+- ✅ 每日总时长限制设置（默认120分钟）
+- ✅ **时间分布可视化**：绿色（可用）+ 灰色（休息）进度条
+- ✅ 计算并显示每日使用次数和总可用时间
+
+#### Step 4: 激活与测试
+- ✅ 激活前置条件检查（权限 + App选择）
+- ✅ 激活/停用配置按钮
+- ✅ 调用 `AppBlockerUtil.activateRestrictions()` / `deactivateRestrictions()`
+- ✅ **使用模拟功能**：1秒=1分钟加速测试
+- ✅ 模拟进度显示和实时计时
+
+#### 日志输出
+- ✅ 初始化日志：权限检查结果
+- ✅ 操作日志：授权请求、App选择、配置变更
+- ✅ 激活日志：激活/停用操作及结果
+- ✅ 模拟日志：使用时间、触发限制等
+
+#### 测试用例说明
+| ID     | 名称             | 状态    | 描述                                 |
+| ------ | ---------------- | ------- | ------------------------------------ |
+| TC-001 | 权限请求流程     | Ready   | 验证从未授权到授权的完整流程         |
+| TC-002 | App选择功能      | Ready   | 验证 FamilyActivityPicker 选择和计数 |
+| TC-003 | 每小时15分钟限制 | Ready   | 验证默认设置和时间分布计算           |
+| TC-004 | 强制休息验证     | Planned | 验证达到15分钟后的强制休息触发       |
+| TC-005 | 模拟器快速测试   | Ready   | 使用加速计时器验证完整流程           |
+
+### 代码变更
+
+**文件**: `ZenBound/DemoUI/Scenarios/EntertainmentGroupConfigView.swift`
+
+新增组件：
+- `ConfigurationStep` 枚举 - 4步骤流程管理
+- `StepProgressView` - 步骤进度指示器
+- `StatusCardView` - 状态卡片显示
+- `AuthorizationCheckSectionView` - 权限检查区块
+- `AppSelectionSectionView` - App选择区块
+- `HourlyLimitSectionView` - 每小时限制设置
+- `HourlyTimeVisualization` - 时间分布可视化
+- `ActivationTestSectionView` - 激活测试区块
+- `TestCasesDocumentationView` - 测试用例文档
+
+### 模拟器验证
+
+- ✅ 编译成功 (BUILD SUCCEEDED)
+- ✅ 部署到 iPhone 17 (26.2) 模拟器
+- ✅ UI 正常显示，所有组件可见
+- ✅ 权限请求弹窗正常触发
+- ✅ 测试用例列表可展开查看详情
+- ✅ 日志输出区域显示初始化日志
