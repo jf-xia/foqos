@@ -1,17 +1,54 @@
 import SwiftUI
 import SwiftData
 import Charts
+import FamilyControls
 
 /// 场景8: 会话数据分析
 /// 统计专注会话数据，展示趋势和洞察
+/// 完整流程：权限检查 → 配置选择 → 数据加载 → 图表分析 → 洞察生成
 struct SessionAnalyticsScenarioView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var profiles: [BlockedProfiles]
+    @EnvironmentObject private var strategyManager: StrategyManager
     
     @State private var logMessages: [LogMessage] = []
     @State private var selectedProfile: BlockedProfiles?
     @State private var selectedTimeRange: TimeRange = .week
-    @State private var insights: ProfileInsightsUtil?
+    
+    // MARK: - 流程阶段
+    enum ConfigurationStep: Int, CaseIterable {
+        case authorization = 0
+        case profileSelection = 1
+        case dataLoading = 2
+        case chartAnalysis = 3
+        case insights = 4
+        
+        var title: String {
+            switch self {
+            case .authorization: return "权限检查"
+            case .profileSelection: return "选择配置"
+            case .dataLoading: return "加载数据"
+            case .chartAnalysis: return "图表分析"
+            case .insights: return "洞察生成"
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .authorization: return "checkmark.shield"
+            case .profileSelection: return "folder"
+            case .dataLoading: return "arrow.down.circle"
+            case .chartAnalysis: return "chart.bar"
+            case .insights: return "lightbulb"
+            }
+        }
+    }
+    
+    @State private var currentStep: ConfigurationStep = .authorization
+    
+    // MARK: - 权限状态
+    @State private var authorizationChecked = false
+    @State private var isAuthorized = false
     
     enum TimeRange: String, CaseIterable {
         case week = "本周"
@@ -30,6 +67,13 @@ struct SessionAnalyticsScenarioView: View {
     // 模拟数据
     @State private var dailyData: [DailyFocusData] = []
     @State private var hourlyData: [HourlyFocusData] = []
+    @State private var isDataLoaded = false
+    @State private var isLoadingData = false
+    
+    // 目标设置
+    @State private var dailyGoalMinutes = 120
+    @State private var weeklyGoalHours = 10
+    @State private var showGoalSettings = false
     
     struct DailyFocusData: Identifiable {
         let id = UUID()
@@ -47,6 +91,13 @@ struct SessionAnalyticsScenarioView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                // MARK: - 流程步骤指示器
+                StepProgressView(
+                    steps: ConfigurationStep.allCases.map { ($0.icon, $0.title) },
+                    currentStep: currentStep.rawValue
+                )
+                .padding(.horizontal)
+                
                 // MARK: - 场景描述
                 DemoSectionView(title: "📖 场景描述", icon: "doc.text") {
                     VStack(alignment: .leading, spacing: 12) {
@@ -58,9 +109,35 @@ struct SessionAnalyticsScenarioView: View {
                         BulletPointView(text: "追踪连续专注天数")
                         
                         Text("**核心特点：**")
-                        BulletPointView(text: "多维度数据统计")
-                        BulletPointView(text: "可视化图表展示")
-                        BulletPointView(text: "趋势和洞察分析")
+                        BulletPointView(text: "✅ 权限检查 - 确保数据访问")
+                        BulletPointView(text: "✅ 配置选择 - 按配置分析数据")
+                        BulletPointView(text: "✅ 多维度数据统计")
+                        BulletPointView(text: "✅ 可视化图表展示")
+                        BulletPointView(text: "✅ 智能洞察和目标追踪")
+                        
+                        // 当前状态卡片
+                        HStack(spacing: 12) {
+                            StatusCardView(
+                                icon: isAuthorized ? "checkmark.shield.fill" : "shield.slash",
+                                title: "权限",
+                                value: isAuthorized ? "已授权" : "未授权",
+                                color: isAuthorized ? .green : .red
+                            )
+                            
+                            StatusCardView(
+                                icon: "folder.fill",
+                                title: "配置数",
+                                value: "\(profiles.count)个",
+                                color: .blue
+                            )
+                            
+                            StatusCardView(
+                                icon: isDataLoaded ? "checkmark.circle.fill" : "circle.dashed",
+                                title: "数据",
+                                value: isDataLoaded ? "已加载" : "未加载",
+                                color: isDataLoaded ? .green : .gray
+                            )
+                        }
                     }
                 }
                 
@@ -95,34 +172,161 @@ struct SessionAnalyticsScenarioView: View {
                     }
                 }
                 
-                // MARK: - 时间范围选择
-                DemoSectionView(title: "📅 时间范围", icon: "calendar") {
-                    Picker("时间范围", selection: $selectedTimeRange) {
-                        ForEach(TimeRange.allCases, id: \.self) { range in
-                            Text(range.rawValue).tag(range)
+                // MARK: - Step 1: 权限检查
+                DemoSectionView(title: "🔐 Step 1: 权限检查", icon: "checkmark.shield") {
+                    AuthorizationCheckSectionView(
+                        isAuthorized: isAuthorized,
+                        authorizationChecked: authorizationChecked,
+                        onCheckAuthorization: checkAuthorization,
+                        onRequestAuthorization: requestAuthorization,
+                        logMessages: logMessages
+                    )
+                }
+                
+                // MARK: - Step 2: 配置选择
+                DemoSectionView(title: "📁 Step 2: 选择配置", icon: "folder") {
+                    VStack(spacing: 12) {
+                        if profiles.isEmpty {
+                            EmptyStateView(
+                                icon: "folder.badge.questionmark",
+                                title: "暂无配置",
+                                message: "请先创建一个屏蔽配置来收集专注数据",
+                                action: nil,
+                                actionTitle: nil
+                            )
+                        } else {
+                            ForEach(profiles) { profile in
+                                ProfileSelectionRow(
+                                    profile: profile,
+                                    isSelected: selectedProfile?.id == profile.id,
+                                    onSelect: {
+                                        selectedProfile = profile
+                                        addLog("📁 已选择配置: \(profile.name)", type: .success)
+                                        currentStep = .dataLoading
+                                    }
+                                )
+                            }
                         }
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: selectedTimeRange) { _, _ in
-                        loadMockData()
-                        addLog("📅 切换时间范围: \(selectedTimeRange.rawValue)", type: .info)
+                        
+                        // 模拟配置（用于测试）
+                        if profiles.isEmpty {
+                            Button {
+                                addLog("📁 使用模拟数据进行演示", type: .info)
+                                currentStep = .dataLoading
+                            } label: {
+                                Label("使用模拟数据", systemImage: "wand.and.stars")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                        }
                     }
                 }
                 
-                // MARK: - 核心指标
-                DemoSectionView(title: "📊 核心指标", icon: "chart.pie") {
+                // MARK: - Step 3: 数据加载与时间范围
+                DemoSectionView(title: "📅 Step 3: 时间范围", icon: "calendar") {
                     VStack(spacing: 12) {
+                        Picker("时间范围", selection: $selectedTimeRange) {
+                            ForEach(TimeRange.allCases, id: \.self) { range in
+                                Text(range.rawValue).tag(range)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .onChange(of: selectedTimeRange) { _, _ in
+                            loadMockData()
+                            addLog("📅 切换时间范围: \(selectedTimeRange.rawValue)", type: .info)
+                        }
+                        
+                        Button {
+                            loadDataWithAnimation()
+                        } label: {
+                            HStack {
+                                if isLoadingData {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "arrow.clockwise")
+                                }
+                                Text(isLoadingData ? "加载中..." : "刷新数据")
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isLoadingData)
+                        
+                        if isDataLoaded {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                Text("数据已加载，共 \(dailyData.count) 天记录")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                
+                // MARK: - Step 4: 核心指标
+                DemoSectionView(title: "📊 Step 4: 核心指标", icon: "chart.pie") {
+                    VStack(spacing: 12) {
+                        // 目标进度
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("今日目标进度")
+                                    .font(.subheadline.bold())
+                                Spacer()
+                                Button {
+                                    showGoalSettings.toggle()
+                                } label: {
+                                    Image(systemName: "gearshape")
+                                        .font(.caption)
+                                }
+                            }
+                            
+                            let todayMinutes = dailyData.first?.focusMinutes ?? 0
+                            let progress = min(1.0, Double(todayMinutes) / Double(dailyGoalMinutes))
+                            
+                            VStack(spacing: 4) {
+                                GeometryReader { geometry in
+                                    ZStack(alignment: .leading) {
+                                        Rectangle()
+                                            .fill(Color(.systemGray5))
+                                            .frame(height: 12)
+                                        
+                                        Rectangle()
+                                            .fill(progress >= 1.0 ? Color.green : Color.blue)
+                                            .frame(width: geometry.size.width * progress, height: 12)
+                                            .animation(.easeInOut, value: progress)
+                                    }
+                                    .cornerRadius(6)
+                                }
+                                .frame(height: 12)
+                                
+                                HStack {
+                                    Text("\(todayMinutes)分钟 / \(dailyGoalMinutes)分钟")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("\(Int(progress * 100))%")
+                                        .font(.caption.bold())
+                                        .foregroundColor(progress >= 1.0 ? .green : .blue)
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
+                        
                         HStack(spacing: 12) {
                             MetricCardView(
                                 title: "总专注时长",
-                                value: "42.5h",
+                                value: totalFocusTimeFormatted,
                                 icon: "clock.fill",
                                 color: .blue,
                                 trend: "+12%"
                             )
                             MetricCardView(
                                 title: "完成会话",
-                                value: "68",
+                                value: "\(totalSessionsCount)",
                                 icon: "checkmark.circle.fill",
                                 color: .green,
                                 trend: "+8"
@@ -132,14 +336,14 @@ struct SessionAnalyticsScenarioView: View {
                         HStack(spacing: 12) {
                             MetricCardView(
                                 title: "平均时长",
-                                value: "37min",
+                                value: averageSessionDuration,
                                 icon: "timer",
                                 color: .orange,
                                 trend: "+5min"
                             )
                             MetricCardView(
                                 title: "连续天数",
-                                value: "12",
+                                value: "\(currentStreakDays)",
                                 icon: "flame.fill",
                                 color: .red,
                                 trend: "🔥"
@@ -157,7 +361,11 @@ struct SessionAnalyticsScenarioView: View {
                                     x: .value("日期", item.date, unit: .day),
                                     y: .value("分钟", item.focusMinutes)
                                 )
-                                .foregroundStyle(Color.blue.gradient)
+                                .foregroundStyle(
+                                    item.focusMinutes >= dailyGoalMinutes 
+                                        ? Color.green.gradient 
+                                        : Color.blue.gradient
+                                )
                             }
                             .frame(height: 200)
                             .chartXAxis {
@@ -165,10 +373,48 @@ struct SessionAnalyticsScenarioView: View {
                                     AxisValueLabel(format: .dateTime.weekday(.abbreviated))
                                 }
                             }
+                            .chartYAxis {
+                                AxisMarks { value in
+                                    AxisValueLabel {
+                                        if let minutes = value.as(Int.self) {
+                                            Text("\(minutes)m")
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // 图例
+                            HStack(spacing: 16) {
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(Color.blue)
+                                        .frame(width: 8, height: 8)
+                                    Text("未达目标")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(Color.green)
+                                        .frame(width: 8, height: 8)
+                                    Text("已达目标")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text("目标: \(dailyGoalMinutes)分钟/天")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
                         } else {
-                            Text("加载中...")
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding()
+                            VStack(spacing: 12) {
+                                ProgressView()
+                                Text("点击「刷新数据」加载图表")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 40)
                         }
                         
                         Text("使用 ProfileInsightsUtil.dailyAggregates() 获取数据")
@@ -332,11 +578,49 @@ let formatted = insights.formattedDuration(metrics.totalFocusTime)
                     }
                 }
                 
+                // MARK: - Step 5: 智能洞察
+                DemoSectionView(title: "💡 Step 5: 智能洞察", icon: "lightbulb") {
+                    VStack(spacing: 12) {
+                        InsightCardView(
+                            type: .positive,
+                            title: "专注时长增长",
+                            message: "本周比上周专注时长增长了 12%，继续保持！",
+                            icon: "arrow.up.right"
+                        )
+                        
+                        InsightCardView(
+                            type: .suggestion,
+                            title: "最佳专注时段",
+                            message: "你在上午 9-11 点专注效率最高，建议安排重要任务在此时段",
+                            icon: "clock.arrow.circlepath"
+                        )
+                        
+                        InsightCardView(
+                            type: .warning,
+                            title: "周末专注不足",
+                            message: "周末平均专注时间只有工作日的 40%，可以尝试设定周末目标",
+                            icon: "calendar.badge.exclamationmark"
+                        )
+                        
+                        InsightCardView(
+                            type: .achievement,
+                            title: "连续专注记录",
+                            message: "恭喜！你已经连续 \(currentStreakDays) 天保持专注习惯 🎉",
+                            icon: "flame.fill"
+                        )
+                    }
+                }
+                
+                // MARK: - 测试用例
+                DemoSectionView(title: "🧪 测试用例", icon: "checkmark.circle") {
+                    SessionAnalyticsTestCasesView()
+                }
+                
                 // MARK: - 日志输出
                 DemoLogView(messages: logMessages)
                 
                 // MARK: - 改进建议
-                DemoSectionView(title: "💡 改进建议", icon: "lightbulb") {
+                DemoSectionView(title: "🔮 改进建议", icon: "wand.and.stars") {
                     VStack(alignment: .leading, spacing: 12) {
                         ImprovementCardView(
                             priority: .high,
@@ -379,15 +663,105 @@ let formatted = insights.formattedDuration(metrics.totalFocusTime)
         }
         .navigationTitle("会话数据分析")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            loadMockData()
+        .sheet(isPresented: $showGoalSettings) {
+            GoalSettingsSheet(
+                dailyGoalMinutes: $dailyGoalMinutes,
+                weeklyGoalHours: $weeklyGoalHours
+            )
         }
+        .onAppear {
+            addLog("📊 会话数据分析场景已加载", type: .info)
+        }
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var totalFocusTimeFormatted: String {
+        let totalMinutes = dailyData.reduce(0) { $0 + $1.focusMinutes }
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if hours > 0 {
+            return "\(hours)h\(minutes)m"
+        }
+        return "\(minutes)m"
+    }
+    
+    private var totalSessionsCount: Int {
+        dailyData.reduce(0) { $0 + $1.sessionsCount }
+    }
+    
+    private var averageSessionDuration: String {
+        guard totalSessionsCount > 0 else { return "0min" }
+        let totalMinutes = dailyData.reduce(0) { $0 + $1.focusMinutes }
+        let average = totalMinutes / totalSessionsCount
+        return "\(average)min"
+    }
+    
+    private var currentStreakDays: Int {
+        var streak = 0
+        for data in dailyData {
+            if data.focusMinutes > 0 {
+                streak += 1
+            } else {
+                break
+            }
+        }
+        return streak
     }
     
     // MARK: - Private Methods
     
+    private func checkAuthorization() {
+        addLog("🔍 检查权限...", type: .info)
+        authorizationChecked = true
+        
+        Task {
+            let status = AuthorizationCenter.shared.authorizationStatus
+            await MainActor.run {
+                isAuthorized = (status == .approved)
+                if isAuthorized {
+                    addLog("✅ 权限已授权", type: .success)
+                    currentStep = .profileSelection
+                } else {
+                    addLog("⚠️ 权限未授权", type: .warning)
+                }
+            }
+        }
+    }
+    
+    private func requestAuthorization() {
+        addLog("📝 请求权限...", type: .info)
+        
+        Task {
+            do {
+                try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+                await MainActor.run {
+                    isAuthorized = true
+                    addLog("✅ 权限请求成功", type: .success)
+                    currentStep = .profileSelection
+                }
+            } catch {
+                await MainActor.run {
+                    addLog("❌ 权限请求失败: \(error.localizedDescription)", type: .error)
+                }
+            }
+        }
+    }
+    
+    private func loadDataWithAnimation() {
+        isLoadingData = true
+        addLog("📊 开始加载数据...", type: .info)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            loadMockData()
+            isLoadingData = false
+            isDataLoaded = true
+            currentStep = .chartAnalysis
+            addLog("✅ 数据加载完成", type: .success)
+        }
+    }
+    
     private func loadMockData() {
-        addLog("📊 加载统计数据", type: .info)
         addLog("🔄 ProfileInsightsUtil.dailyAggregates()", type: .success)
         addLog("🔄 ProfileInsightsUtil.hourlyAggregates()", type: .success)
         
@@ -413,6 +787,191 @@ let formatted = insights.formattedDuration(metrics.totalFocusTime)
     
     private func addLog(_ message: String, type: LogType) {
         logMessages.insert(LogMessage(message: message, type: type), at: 0)
+    }
+}
+
+// MARK: - Profile Selection Row
+struct ProfileSelectionRow: View {
+    let profile: BlockedProfiles
+    let isSelected: Bool
+    let onSelect: () -> Void
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isSelected ? .green : .gray)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(profile.name)
+                        .font(.subheadline.bold())
+                        .foregroundColor(.primary)
+                    Text("\(profile.sessions.count) 个会话记录")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding()
+            .background(isSelected ? Color.green.opacity(0.1) : Color(.systemGray6))
+            .cornerRadius(10)
+        }
+    }
+}
+
+// MARK: - Insight Card View
+struct InsightCardView: View {
+    enum InsightType {
+        case positive, warning, suggestion, achievement
+        
+        var color: Color {
+            switch self {
+            case .positive: return .green
+            case .warning: return .orange
+            case .suggestion: return .blue
+            case .achievement: return .purple
+            }
+        }
+    }
+    
+    let type: InsightType
+    let title: String
+    let message: String
+    let icon: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(type.color)
+                .frame(width: 24)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.bold())
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .background(type.color.opacity(0.1))
+        .cornerRadius(10)
+    }
+}
+
+// MARK: - Goal Settings Sheet
+struct GoalSettingsSheet: View {
+    @Binding var dailyGoalMinutes: Int
+    @Binding var weeklyGoalHours: Int
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("每日目标") {
+                    Stepper("每日专注: \(dailyGoalMinutes) 分钟",
+                            value: $dailyGoalMinutes, in: 30...480, step: 30)
+                }
+                
+                Section("每周目标") {
+                    Stepper("每周专注: \(weeklyGoalHours) 小时",
+                            value: $weeklyGoalHours, in: 5...60, step: 5)
+                }
+                
+                Section {
+                    Text("设置合理的目标可以帮助你保持专注习惯，建议从较低的目标开始逐步提高。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("目标设置")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
+// MARK: - Session Analytics Test Cases View
+struct SessionAnalyticsTestCasesView: View {
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation { isExpanded.toggle() }
+            } label: {
+                HStack {
+                    Text("查看测试用例")
+                        .font(.subheadline.bold())
+                    Spacer()
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                }
+                .foregroundColor(.primary)
+            }
+            
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    TestCaseRowView(
+                        id: "TC-A001",
+                        name: "权限检查",
+                        status: .ready,
+                        description: "验证权限状态检测和请求流程"
+                    )
+                    TestCaseRowView(
+                        id: "TC-A002",
+                        name: "配置选择",
+                        status: .ready,
+                        description: "验证配置列表显示和选择功能"
+                    )
+                    TestCaseRowView(
+                        id: "TC-A003",
+                        name: "数据加载",
+                        status: .ready,
+                        description: "验证不同时间范围数据加载"
+                    )
+                    TestCaseRowView(
+                        id: "TC-A004",
+                        name: "图表渲染",
+                        status: .ready,
+                        description: "验证每日趋势和时段分布图表显示"
+                    )
+                    TestCaseRowView(
+                        id: "TC-A005",
+                        name: "目标进度",
+                        status: .ready,
+                        description: "验证目标设置和进度计算"
+                    )
+                    TestCaseRowView(
+                        id: "TC-A006",
+                        name: "智能洞察",
+                        status: .ready,
+                        description: "验证洞察卡片显示和内容准确性"
+                    )
+                    TestCaseRowView(
+                        id: "TC-A007",
+                        name: "连续天数",
+                        status: .ready,
+                        description: "验证连续专注天数计算正确"
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -452,5 +1011,6 @@ struct MetricCardView: View {
 #Preview {
     NavigationStack {
         SessionAnalyticsScenarioView()
+            .environmentObject(StrategyManager.shared)
     }
 }
