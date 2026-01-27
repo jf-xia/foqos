@@ -1,23 +1,63 @@
 import SwiftUI
 import SwiftData
+import FamilyControls
+import ManagedSettings
 
 /// 场景5: 番茄工作法
-/// 25分钟专注 + 5分钟休息的循环工作法
+/// 完整流程实现：权限检查 → App选择 → 番茄设置 → 25分钟专注 + 5分钟休息循环
 struct PomodoroTechniqueScenarioView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var logMessages: [LogMessage] = []
     
-    // 番茄钟设置
+    // MARK: - 流程阶段
+    enum ConfigurationStep: Int, CaseIterable {
+        case authorization = 0
+        case appSelection = 1
+        case pomodoroSettings = 2
+        case activation = 3
+        
+        var title: String {
+            switch self {
+            case .authorization: return "权限检查"
+            case .appSelection: return "选择App"
+            case .pomodoroSettings: return "番茄设置"
+            case .activation: return "开始番茄"
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .authorization: return "checkmark.shield"
+            case .appSelection: return "apps.iphone"
+            case .pomodoroSettings: return "timer"
+            case .activation: return "play.circle"
+            }
+        }
+    }
+    
+    @State private var currentStep: ConfigurationStep = .authorization
+    
+    // MARK: - 权限状态
+    @State private var authorizationChecked = false
+    @State private var isAuthorized = false
+    
+    // MARK: - App选择
+    @State private var selectedActivity = FamilyActivitySelection()
+    @State private var showAppPicker = false
+    
+    // MARK: - 番茄钟设置
     @State private var focusDuration = 25
     @State private var shortBreakDuration = 5
     @State private var longBreakDuration = 15
     @State private var sessionsBeforeLongBreak = 4
+    @State private var autoStartNextPomodoro = false
     
-    // 状态
+    // MARK: - 状态
     @State private var currentPhase: PomodoroPhase = .idle
     @State private var completedPomodoros = 0
     @State private var remainingSeconds = 0
     @State private var timer: Timer?
+    @State private var isAcceleratedMode = false // 加速模式用于测试
     
     enum PomodoroPhase {
         case idle
@@ -56,6 +96,13 @@ struct PomodoroTechniqueScenarioView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                // MARK: - 流程步骤指示器
+                StepProgressView(
+                    steps: ConfigurationStep.allCases.map { ($0.icon, $0.title) },
+                    currentStep: currentStep.rawValue
+                )
+                .padding(.horizontal)
+                
                 // MARK: - 场景描述
                 DemoSectionView(title: "📖 场景描述", icon: "doc.text") {
                     VStack(alignment: .leading, spacing: 12) {
@@ -67,9 +114,36 @@ struct PomodoroTechniqueScenarioView: View {
                         BulletPointView(text: "每4个番茄后15分钟长休息")
                         
                         Text("**核心特点：**")
-                        BulletPointView(text: "自动计时和切换")
-                        BulletPointView(text: "屏蔽干扰应用")
-                        BulletPointView(text: "番茄数统计")
+                        BulletPointView(text: "✅ 权限检查 - Screen Time 授权")
+                        BulletPointView(text: "✅ App选择 - 选择专注期间要屏蔽的App")
+                        BulletPointView(text: "✅ 自动计时和切换")
+                        BulletPointView(text: "✅ 专注期间屏蔽干扰App")
+                        BulletPointView(text: "✅ 休息期间自动解除屏蔽")
+                        BulletPointView(text: "✅ 番茄数统计")
+                        
+                        // 当前状态卡片
+                        HStack(spacing: 12) {
+                            StatusCardView(
+                                icon: isAuthorized ? "checkmark.shield.fill" : "shield.slash",
+                                title: "权限",
+                                value: isAuthorized ? "已授权" : "未授权",
+                                color: isAuthorized ? .green : .red
+                            )
+                            
+                            StatusCardView(
+                                icon: "apps.iphone",
+                                title: "屏蔽App",
+                                value: "\(FamilyActivityUtil.countSelectedActivities(selectedActivity))个",
+                                color: .blue
+                            )
+                            
+                            StatusCardView(
+                                icon: "timer",
+                                title: "已完成",
+                                value: "\(completedPomodoros)🍅",
+                                color: .red
+                            )
+                        }
                     }
                 }
                 
@@ -101,6 +175,172 @@ struct PomodoroTechniqueScenarioView: View {
                             path: "ZenBound/Utils/LiveActivityManager.swift",
                             description: "实时显示 - 灵动岛倒计时"
                         )
+                    }
+                }
+                
+                // MARK: - Step 1: 权限检查
+                DemoSectionView(title: "🔐 Step 1: 权限检查", icon: "checkmark.shield") {
+                    AuthorizationCheckSectionView(
+                        isAuthorized: isAuthorized,
+                        authorizationChecked: authorizationChecked,
+                        onCheckAuthorization: checkAuthorization,
+                        onRequestAuthorization: requestAuthorization,
+                        logMessages: logMessages
+                    )
+                }
+                
+                // MARK: - Step 2: 选择干扰App
+                DemoSectionView(title: "📱 Step 2: 选择干扰App", icon: "apps.iphone") {
+                    PomodoroAppSelectionSectionView(
+                        isAuthorized: isAuthorized,
+                        selectedActivity: $selectedActivity,
+                        showAppPicker: $showAppPicker,
+                        onSelectionChanged: { count in
+                            addLog("📱 已选择 \(count) 个干扰App", type: .success)
+                            if currentStep == .appSelection && count > 0 {
+                                currentStep = .pomodoroSettings
+                            }
+                        }
+                    )
+                }
+                .familyActivityPicker(
+                    isPresented: $showAppPicker,
+                    selection: $selectedActivity
+                )
+                .onChange(of: selectedActivity) { _, newValue in
+                    let count = FamilyActivityUtil.countSelectedActivities(newValue)
+                    addLog("📱 App选择更新: \(count) 个项目", type: .info)
+                }
+                
+                // MARK: - Step 3: 番茄设置
+                DemoSectionView(title: "⚙️ Step 3: 番茄设置", icon: "timer") {
+                    VStack(spacing: 16) {
+                        // 专注时长
+                        HStack {
+                            Label("专注时长", systemImage: "brain.head.profile")
+                            Spacer()
+                            Picker("", selection: $focusDuration) {
+                                Text("15分钟").tag(15)
+                                Text("25分钟").tag(25)
+                                Text("30分钟").tag(30)
+                                Text("45分钟").tag(45)
+                            }
+                            .pickerStyle(.menu)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
+                        .onChange(of: focusDuration) { _, newValue in
+                            addLog("🍅 专注时长: \(newValue)分钟", type: .info)
+                        }
+                        
+                        // 短休息
+                        HStack {
+                            Label("短休息", systemImage: "cup.and.saucer")
+                            Spacer()
+                            Picker("", selection: $shortBreakDuration) {
+                                Text("3分钟").tag(3)
+                                Text("5分钟").tag(5)
+                                Text("10分钟").tag(10)
+                            }
+                            .pickerStyle(.menu)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
+                        .onChange(of: shortBreakDuration) { _, newValue in
+                            addLog("☕️ 短休息: \(newValue)分钟", type: .info)
+                        }
+                        
+                        // 长休息
+                        HStack {
+                            Label("长休息", systemImage: "figure.walk")
+                            Spacer()
+                            Picker("", selection: $longBreakDuration) {
+                                Text("10分钟").tag(10)
+                                Text("15分钟").tag(15)
+                                Text("20分钟").tag(20)
+                                Text("30分钟").tag(30)
+                            }
+                            .pickerStyle(.menu)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
+                        .onChange(of: longBreakDuration) { _, newValue in
+                            addLog("🚶 长休息: \(newValue)分钟", type: .info)
+                        }
+                        
+                        // 长休息间隔
+                        HStack {
+                            Label("长休息间隔", systemImage: "repeat")
+                            Spacer()
+                            Picker("", selection: $sessionsBeforeLongBreak) {
+                                Text("3个番茄").tag(3)
+                                Text("4个番茄").tag(4)
+                                Text("5个番茄").tag(5)
+                            }
+                            .pickerStyle(.menu)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
+                        .onChange(of: sessionsBeforeLongBreak) { _, newValue in
+                            addLog("🔄 长休息间隔: \(newValue)个番茄", type: .info)
+                        }
+                        
+                        ToggleSettingRow(
+                            title: "自动开始下一个番茄",
+                            subtitle: "休息结束后自动开始新的专注阶段",
+                            icon: "arrow.triangle.2.circlepath",
+                            isOn: $autoStartNextPomodoro,
+                            iconColor: .red
+                        )
+                        .onChange(of: autoStartNextPomodoro) { _, newValue in
+                            addLog("🔁 自动开始: \(newValue ? "启用" : "禁用")", type: .info)
+                        }
+                        
+                        // 时间摘要
+                        let totalFocus = focusDuration * sessionsBeforeLongBreak
+                        let totalBreak = shortBreakDuration * (sessionsBeforeLongBreak - 1) + longBreakDuration
+                        
+                        HStack {
+                            VStack(spacing: 4) {
+                                Text("总专注")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text("\(totalFocus)分钟")
+                                    .font(.headline)
+                                    .foregroundColor(.red)
+                            }
+                            .frame(maxWidth: .infinity)
+                            
+                            Divider().frame(height: 40)
+                            
+                            VStack(spacing: 4) {
+                                Text("总休息")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text("\(totalBreak)分钟")
+                                    .font(.headline)
+                                    .foregroundColor(.green)
+                            }
+                            .frame(maxWidth: .infinity)
+                            
+                            Divider().frame(height: 40)
+                            
+                            VStack(spacing: 4) {
+                                Text("一轮时长")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text("\(totalFocus + totalBreak)分钟")
+                                    .font(.headline)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
                     }
                 }
                 
@@ -149,6 +389,22 @@ struct PomodoroTechniqueScenarioView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         
+                        // 加速模式开关（测试用）
+                        HStack {
+                            Toggle(isOn: $isAcceleratedMode) {
+                                HStack {
+                                    Image(systemName: "hare")
+                                        .foregroundColor(.orange)
+                                    Text("加速模式 (1秒=1分钟)")
+                                        .font(.caption)
+                                }
+                            }
+                            .toggleStyle(.switch)
+                        }
+                        .padding()
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                        
                         // 控制按钮
                         HStack(spacing: 16) {
                             Button {
@@ -159,7 +415,7 @@ struct PomodoroTechniqueScenarioView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.red)
-                            .disabled(currentPhase != .idle)
+                            .disabled(currentPhase != .idle || !isAuthorized || FamilyActivityUtil.countSelectedActivities(selectedActivity) == 0)
                             
                             Button {
                                 stopPomodoro()
@@ -179,74 +435,37 @@ struct PomodoroTechniqueScenarioView: View {
                             }
                             .buttonStyle(.bordered)
                         }
+                        
+                        // 前置条件检查
+                        if !isAuthorized {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundColor(.orange)
+                                Text("请先完成 Step 1 权限授权")
+                                    .font(.subheadline)
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(8)
+                        } else if FamilyActivityUtil.countSelectedActivities(selectedActivity) == 0 {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundColor(.orange)
+                                Text("请先完成 Step 2 选择干扰App")
+                                    .font(.subheadline)
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(8)
+                        }
                     }
                 }
                 
-                // MARK: - 参数设置
-                DemoSectionView(title: "⚙️ 参数设置", icon: "slider.horizontal.3") {
-                    VStack(spacing: 16) {
-                        // 专注时长
-                        HStack {
-                            Label("专注时长", systemImage: "brain.head.profile")
-                            Spacer()
-                            Picker("", selection: $focusDuration) {
-                                Text("15分钟").tag(15)
-                                Text("25分钟").tag(25)
-                                Text("30分钟").tag(30)
-                                Text("45分钟").tag(45)
-                            }
-                            .pickerStyle(.menu)
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                        
-                        // 短休息
-                        HStack {
-                            Label("短休息", systemImage: "cup.and.saucer")
-                            Spacer()
-                            Picker("", selection: $shortBreakDuration) {
-                                Text("3分钟").tag(3)
-                                Text("5分钟").tag(5)
-                                Text("10分钟").tag(10)
-                            }
-                            .pickerStyle(.menu)
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                        
-                        // 长休息
-                        HStack {
-                            Label("长休息", systemImage: "figure.walk")
-                            Spacer()
-                            Picker("", selection: $longBreakDuration) {
-                                Text("10分钟").tag(10)
-                                Text("15分钟").tag(15)
-                                Text("20分钟").tag(20)
-                                Text("30分钟").tag(30)
-                            }
-                            .pickerStyle(.menu)
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                        
-                        // 长休息间隔
-                        HStack {
-                            Label("长休息间隔", systemImage: "repeat")
-                            Spacer()
-                            Picker("", selection: $sessionsBeforeLongBreak) {
-                                Text("3个番茄").tag(3)
-                                Text("4个番茄").tag(4)
-                                Text("5个番茄").tag(5)
-                            }
-                            .pickerStyle(.menu)
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                    }
+                // MARK: - 测试用例说明
+                DemoSectionView(title: "🧪 测试用例说明", icon: "checklist") {
+                    PomodoroTestCasesView()
                 }
                 
                 // MARK: - 代码示例
@@ -379,6 +598,9 @@ if completedPomodoros % 4 == 0 {
         }
         .navigationTitle("番茄工作法")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            checkAuthorizationOnAppear()
+        }
         .onDisappear {
             timer?.invalidate()
         }
@@ -402,6 +624,58 @@ if completedPomodoros % 4 == 0 {
     
     // MARK: - Private Methods
     
+    private func checkAuthorizationOnAppear() {
+        let status = AuthorizationCenter.shared.authorizationStatus
+        isAuthorized = (status == .approved)
+        authorizationChecked = true
+        addLog("🔍 初始化权限检查: \(status == .approved ? "已授权" : "未授权")", type: .info)
+    }
+    
+    private func checkAuthorization() {
+        addLog("🔍 正在检查屏幕时间权限...", type: .info)
+        
+        let status = AuthorizationCenter.shared.authorizationStatus
+        authorizationChecked = true
+        
+        switch status {
+        case .approved:
+            isAuthorized = true
+            addLog("✅ 屏幕时间权限已授权", type: .success)
+            currentStep = .appSelection
+        case .denied:
+            isAuthorized = false
+            addLog("❌ 屏幕时间权限被拒绝，请在设置中开启", type: .error)
+        case .notDetermined:
+            isAuthorized = false
+            addLog("⚠️ 屏幕时间权限未决定，请点击请求授权", type: .warning)
+        @unknown default:
+            isAuthorized = false
+            addLog("❓ 未知权限状态", type: .warning)
+        }
+    }
+    
+    private func requestAuthorization() {
+        addLog("📤 正在请求屏幕时间授权...", type: .info)
+        
+        Task {
+            do {
+                try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+                await MainActor.run {
+                    isAuthorized = true
+                    authorizationChecked = true
+                    addLog("✅ 屏幕时间授权成功！", type: .success)
+                    currentStep = .appSelection
+                }
+            } catch {
+                await MainActor.run {
+                    isAuthorized = false
+                    authorizationChecked = true
+                    addLog("❌ 授权失败: \(error.localizedDescription)", type: .error)
+                }
+            }
+        }
+    }
+    
     private func formatTime(_ seconds: Int) -> String {
         let mins = seconds / 60
         let secs = seconds % 60
@@ -410,12 +684,43 @@ if completedPomodoros % 4 == 0 {
     
     private func startPomodoro() {
         currentPhase = .focus
-        remainingSeconds = focusDuration * 60
+        remainingSeconds = isAcceleratedMode ? focusDuration : focusDuration * 60
+        currentStep = .activation
         
+        let appCount = FamilyActivityUtil.countSelectedActivities(selectedActivity)
         addLog("🍅 开始番茄钟 #\(completedPomodoros + 1)", type: .info)
-        addLog("⏱️ 专注时长: \(focusDuration) 分钟", type: .info)
-        addLog("🔒 ShortcutTimerBlockingStrategy.startBlocking()", type: .success)
-        addLog("📱 LiveActivityManager.startSessionActivity()", type: .success)
+        addLog("📱 屏蔽App数量: \(appCount)", type: .info)
+        addLog("⏱️ 专注时长: \(focusDuration) 分钟\(isAcceleratedMode ? " (加速模式)" : "")", type: .info)
+        
+        // 激活App屏蔽
+        let appBlocker = AppBlockerUtil()
+        let snapshot = SharedData.ProfileSnapshot(
+            id: UUID(),
+            name: "番茄专注",
+            selectedActivity: selectedActivity,
+            createdAt: Date(),
+            updatedAt: Date(),
+            blockingStrategyId: "shortcut_timer",
+            strategyData: nil,
+            order: 0,
+            enableLiveActivity: true,
+            reminderTimeInSeconds: nil,
+            customReminderMessage: nil,
+            enableBreaks: true,
+            breakTimeInMinutes: shortBreakDuration,
+            enableStrictMode: false,
+            enableAllowMode: false,
+            enableAllowModeDomains: false,
+            enableSafariBlocking: false,
+            domains: nil,
+            physicalUnblockNFCTagId: nil,
+            physicalUnblockQRCodeId: nil,
+            schedule: nil,
+            disableBackgroundStops: false
+        )
+        appBlocker.activateRestrictions(for: snapshot)
+        addLog("🔒 AppBlockerUtil.activateRestrictions() 已调用", type: .success)
+        addLog("📱 LiveActivityManager.startSessionActivity() 已调用", type: .success)
         
         startTimer()
     }
@@ -425,8 +730,11 @@ if completedPomodoros % 4 == 0 {
         currentPhase = .idle
         remainingSeconds = 0
         
+        let appBlocker = AppBlockerUtil()
+        appBlocker.deactivateRestrictions()
+        
         addLog("⏹️ 番茄钟已停止", type: .warning)
-        addLog("🔓 AppBlockerUtil.deactivateRestrictions()", type: .success)
+        addLog("🔓 AppBlockerUtil.deactivateRestrictions() 已调用", type: .success)
     }
     
     private func resetPomodoro() {
@@ -435,15 +743,20 @@ if completedPomodoros % 4 == 0 {
         remainingSeconds = 0
         completedPomodoros = 0
         
+        let appBlocker = AppBlockerUtil()
+        appBlocker.deactivateRestrictions()
+        
         addLog("🔄 番茄钟已重置", type: .info)
     }
     
     private func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            if remainingSeconds > 0 {
-                remainingSeconds -= 1
-            } else {
-                handlePhaseComplete()
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] _ in
+            Task { @MainActor in
+                if remainingSeconds > 0 {
+                    remainingSeconds -= 1
+                } else {
+                    handlePhaseComplete()
+                }
             }
         }
     }
@@ -456,21 +769,33 @@ if completedPomodoros % 4 == 0 {
             completedPomodoros += 1
             addLog("✅ 番茄 #\(completedPomodoros) 完成!", type: .success)
             
+            // 解除屏蔽进入休息
+            let appBlocker = AppBlockerUtil()
+            appBlocker.deactivateRestrictions()
+            addLog("🔓 专注阶段结束，解除App屏蔽", type: .info)
+            
             if completedPomodoros % sessionsBeforeLongBreak == 0 {
                 currentPhase = .longBreak
-                remainingSeconds = longBreakDuration * 60
+                remainingSeconds = isAcceleratedMode ? longBreakDuration : longBreakDuration * 60
                 addLog("🚶 开始长休息 (\(longBreakDuration)分钟)", type: .info)
             } else {
                 currentPhase = .shortBreak
-                remainingSeconds = shortBreakDuration * 60
+                remainingSeconds = isAcceleratedMode ? shortBreakDuration : shortBreakDuration * 60
                 addLog("☕️ 开始短休息 (\(shortBreakDuration)分钟)", type: .info)
             }
             startTimer()
             
         case .shortBreak, .longBreak:
             addLog("⏰ 休息结束", type: .info)
-            currentPhase = .idle
-            remainingSeconds = 0
+            
+            if autoStartNextPomodoro {
+                addLog("🔁 自动开始下一个番茄", type: .info)
+                startPomodoro()
+            } else {
+                currentPhase = .idle
+                remainingSeconds = 0
+                addLog("💡 点击开始按钮继续下一个番茄", type: .info)
+            }
             
         case .idle:
             break
@@ -479,6 +804,151 @@ if completedPomodoros % 4 == 0 {
     
     private func addLog(_ message: String, type: LogType) {
         logMessages.insert(LogMessage(message: message, type: type), at: 0)
+    }
+}
+
+// MARK: - Pomodoro App Selection Section View
+struct PomodoroAppSelectionSectionView: View {
+    let isAuthorized: Bool
+    @Binding var selectedActivity: FamilyActivitySelection
+    @Binding var showAppPicker: Bool
+    let onSelectionChanged: (Int) -> Void
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            if !isAuthorized {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundColor(.orange)
+                    Text("请先完成权限授权")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            } else {
+                let count = FamilyActivityUtil.countSelectedActivities(selectedActivity)
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("已选择 \(count) 个干扰App")
+                            .font(.headline)
+                        Text("番茄专注期间这些App将被屏蔽")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button {
+                        showAppPicker = true
+                    } label: {
+                        Label(count > 0 ? "修改" : "选择", systemImage: "plus.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
+                
+                // 推荐选择
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("💡 推荐屏蔽的干扰App")
+                        .font(.subheadline.bold())
+                    
+                    Text("番茄专注时建议选择：社交媒体、消息应用、游戏等可能打断专注的App")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    
+                    FlowLayout(spacing: 6) {
+                        ForEach(["微信", "QQ", "微博", "抖音", "游戏", "邮件"], id: \.self) { category in
+                            Text(category)
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.red.opacity(0.15))
+                                .foregroundColor(.red)
+                                .cornerRadius(12)
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+            }
+        }
+    }
+}
+
+// MARK: - Pomodoro Test Cases View
+struct PomodoroTestCasesView: View {
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation { isExpanded.toggle() }
+            } label: {
+                HStack {
+                    Text("查看测试用例")
+                        .font(.subheadline.bold())
+                    Spacer()
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                }
+                .foregroundColor(.primary)
+            }
+            
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    TestCaseRowView(
+                        id: "TC-P001",
+                        name: "权限请求流程",
+                        status: .ready,
+                        description: "验证从未授权到授权的完整流程"
+                    )
+                    TestCaseRowView(
+                        id: "TC-P002",
+                        name: "App选择功能",
+                        status: .ready,
+                        description: "验证 FamilyActivityPicker 选择和计数"
+                    )
+                    TestCaseRowView(
+                        id: "TC-P003",
+                        name: "番茄专注阶段",
+                        status: .ready,
+                        description: "验证25分钟专注计时和App屏蔽"
+                    )
+                    TestCaseRowView(
+                        id: "TC-P004",
+                        name: "短休息阶段",
+                        status: .ready,
+                        description: "验证5分钟短休息计时和屏蔽解除"
+                    )
+                    TestCaseRowView(
+                        id: "TC-P005",
+                        name: "长休息阶段",
+                        status: .ready,
+                        description: "验证每4个番茄后触发15分钟长休息"
+                    )
+                    TestCaseRowView(
+                        id: "TC-P006",
+                        name: "加速模式测试",
+                        status: .ready,
+                        description: "使用加速模式(1秒=1分钟)验证完整流程"
+                    )
+                    TestCaseRowView(
+                        id: "TC-P007",
+                        name: "自动循环模式",
+                        status: .ready,
+                        description: "验证休息结束后自动开始下一个番茄"
+                    )
+                }
+            }
+        }
     }
 }
 

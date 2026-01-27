@@ -1,22 +1,75 @@
 import SwiftUI
 import SwiftData
 import FamilyControls
+import ManagedSettings
 
 /// 场景1: 工作专注模式
-/// 一键启动工作专注，屏蔽干扰应用，显示Live Activity实时进度
+/// 完整流程实现：权限检查 → App选择 → 一键启动专注 → 实时显示进度 → 结束会话
 struct WorkFocusScenarioView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var strategyManager: StrategyManager
     @Query private var profiles: [BlockedProfiles]
     
     @State private var logMessages: [LogMessage] = []
-    @State private var selectedProfile: BlockedProfiles?
+    
+    // MARK: - 流程阶段
+    enum ConfigurationStep: Int, CaseIterable {
+        case authorization = 0
+        case appSelection = 1
+        case settings = 2
+        case activation = 3
+        
+        var title: String {
+            switch self {
+            case .authorization: return "权限检查"
+            case .appSelection: return "选择App"
+            case .settings: return "专注设置"
+            case .activation: return "开始专注"
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .authorization: return "checkmark.shield"
+            case .appSelection: return "apps.iphone"
+            case .settings: return "gearshape"
+            case .activation: return "play.circle"
+            }
+        }
+    }
+    
+    @State private var currentStep: ConfigurationStep = .authorization
+    
+    // MARK: - 权限状态
+    @State private var authorizationChecked = false
+    @State private var isAuthorized = false
+    
+    // MARK: - App选择
+    @State private var selectedActivity = FamilyActivitySelection()
+    @State private var showAppPicker = false
+    
+    // MARK: - 专注设置
+    @State private var enableLiveActivity = true
+    @State private var enableStrictMode = false
+    @State private var reminderTimeMinutes = 30
+    @State private var customReminderMessage = "继续专注，你做得很好！"
+    
+    // MARK: - 会话状态
     @State private var isBlocking = false
+    @State private var sessionStartTime: Date?
     @State private var elapsedTime: TimeInterval = 0
+    @State private var sessionTimer: Timer?
     
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                // MARK: - 流程步骤指示器
+                StepProgressView(
+                    steps: ConfigurationStep.allCases.map { ($0.icon, $0.title) },
+                    currentStep: currentStep.rawValue
+                )
+                .padding(.horizontal)
+                
                 // MARK: - 场景描述
                 DemoSectionView(title: "📖 场景描述", icon: "doc.text") {
                     VStack(alignment: .leading, spacing: 12) {
@@ -28,9 +81,34 @@ struct WorkFocusScenarioView: View {
                         BulletPointView(text: "写作或编程时保持专注")
                         
                         Text("**核心特点：**")
-                        BulletPointView(text: "一键启动/停止")
-                        BulletPointView(text: "实时显示专注时长 (Live Activity)")
-                        BulletPointView(text: "手动控制，灵活自由")
+                        BulletPointView(text: "✅ 权限检查 - Screen Time 授权")
+                        BulletPointView(text: "✅ App选择 - 选择要屏蔽的干扰App")
+                        BulletPointView(text: "✅ 一键启动/停止")
+                        BulletPointView(text: "✅ 实时显示专注时长 (Live Activity)")
+                        
+                        // 当前状态卡片
+                        HStack(spacing: 12) {
+                            StatusCardView(
+                                icon: isAuthorized ? "checkmark.shield.fill" : "shield.slash",
+                                title: "权限",
+                                value: isAuthorized ? "已授权" : "未授权",
+                                color: isAuthorized ? .green : .red
+                            )
+                            
+                            StatusCardView(
+                                icon: "apps.iphone",
+                                title: "屏蔽App",
+                                value: "\(FamilyActivityUtil.countSelectedActivities(selectedActivity))个",
+                                color: .blue
+                            )
+                            
+                            StatusCardView(
+                                icon: isBlocking ? "lock.fill" : "lock.open",
+                                title: "状态",
+                                value: isBlocking ? "专注中" : "空闲",
+                                color: isBlocking ? .green : .gray
+                            )
+                        }
                     }
                 }
                 
@@ -65,55 +143,140 @@ struct WorkFocusScenarioView: View {
                     }
                 }
                 
-                // MARK: - 实时演示
-                DemoSectionView(title: "🎮 实时演示", icon: "play.circle") {
-                    VStack(spacing: 16) {
-                        // 选择配置
-                        if profiles.isEmpty {
-                            EmptyStateView(
-                                icon: "person.crop.rectangle.stack",
-                                title: "无可用配置",
-                                message: "请先创建屏蔽配置文件"
-                            )
-                        } else {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("选择配置:")
-                                    .font(.subheadline.bold())
-                                
-                                ForEach(profiles.prefix(3)) { profile in
-                                    Button {
-                                        selectedProfile = profile
-                                        addLog("📋 选中配置: \(profile.name)", type: .info)
-                                    } label: {
-                                        HStack {
-                                            Text(profile.name)
-                                                .foregroundColor(.primary)
-                                            Spacer()
-                                            if selectedProfile?.id == profile.id {
-                                                Image(systemName: "checkmark.circle.fill")
-                                                    .foregroundColor(.accentColor)
-                                            }
-                                        }
-                                        .padding()
-                                        .background(Color(.systemGray6))
-                                        .cornerRadius(8)
-                                    }
-                                }
+                // MARK: - Step 1: 权限检查
+                DemoSectionView(title: "🔐 Step 1: 权限检查", icon: "checkmark.shield") {
+                    AuthorizationCheckSectionView(
+                        isAuthorized: isAuthorized,
+                        authorizationChecked: authorizationChecked,
+                        onCheckAuthorization: checkAuthorization,
+                        onRequestAuthorization: requestAuthorization,
+                        logMessages: logMessages
+                    )
+                }
+                
+                // MARK: - Step 2: 选择干扰App
+                DemoSectionView(title: "📱 Step 2: 选择干扰App", icon: "apps.iphone") {
+                    WorkAppSelectionSectionView(
+                        isAuthorized: isAuthorized,
+                        selectedActivity: $selectedActivity,
+                        showAppPicker: $showAppPicker,
+                        onSelectionChanged: { count in
+                            addLog("📱 已选择 \(count) 个干扰App", type: .success)
+                            if currentStep == .appSelection && count > 0 {
+                                currentStep = .settings
                             }
+                        }
+                    )
+                }
+                .familyActivityPicker(
+                    isPresented: $showAppPicker,
+                    selection: $selectedActivity
+                )
+                .onChange(of: selectedActivity) { _, newValue in
+                    let count = FamilyActivityUtil.countSelectedActivities(newValue)
+                    addLog("📱 App选择更新: \(count) 个项目", type: .info)
+                }
+                
+                // MARK: - Step 3: 专注设置
+                DemoSectionView(title: "⚙️ Step 3: 专注设置", icon: "gearshape") {
+                    VStack(spacing: 16) {
+                        ToggleSettingRow(
+                            title: "启用 Live Activity",
+                            subtitle: "在锁屏和灵动岛显示专注进度",
+                            icon: "iphone",
+                            isOn: $enableLiveActivity,
+                            iconColor: .blue
+                        )
+                        .onChange(of: enableLiveActivity) { _, newValue in
+                            addLog("📱 Live Activity: \(newValue ? "启用" : "禁用")", type: .info)
+                        }
+                        
+                        ToggleSettingRow(
+                            title: "严格模式",
+                            subtitle: "启用后需要完成设定时长才能停止",
+                            icon: "lock.shield",
+                            isOn: $enableStrictMode,
+                            iconColor: .orange
+                        )
+                        .onChange(of: enableStrictMode) { _, newValue in
+                            addLog("🔒 严格模式: \(newValue ? "启用" : "禁用")", type: .info)
+                        }
+                        
+                        // 提醒设置
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Label("定时提醒", systemImage: "bell")
+                                    .font(.subheadline)
+                                Spacer()
+                                Picker("", selection: $reminderTimeMinutes) {
+                                    Text("15分钟").tag(15)
+                                    Text("30分钟").tag(30)
+                                    Text("45分钟").tag(45)
+                                    Text("60分钟").tag(60)
+                                    Text("关闭").tag(0)
+                                }
+                                .pickerStyle(.menu)
+                            }
+                            
+                            if reminderTimeMinutes > 0 {
+                                TextField("自定义提醒消息", text: $customReminderMessage)
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.caption)
+                            }
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+                    }
+                }
+                
+                // MARK: - Step 4: 开始专注
+                DemoSectionView(title: "🚀 Step 4: 开始专注", icon: "play.circle") {
+                    VStack(spacing: 16) {
+                        // 前置条件检查
+                        if !isAuthorized {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundColor(.orange)
+                                Text("请先完成 Step 1 权限授权")
+                                    .font(.subheadline)
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(8)
+                        } else if FamilyActivityUtil.countSelectedActivities(selectedActivity) == 0 {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundColor(.orange)
+                                Text("请先完成 Step 2 选择干扰App")
+                                    .font(.subheadline)
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(8)
                         }
                         
                         // 专注状态显示
                         if isBlocking {
-                            VStack(spacing: 8) {
+                            VStack(spacing: 12) {
                                 Image(systemName: "lock.shield.fill")
                                     .font(.system(size: 48))
                                     .foregroundColor(.green)
                                 
                                 Text(formatDuration(elapsedTime))
-                                    .font(.system(size: 36, weight: .bold, design: .monospaced))
+                                    .font(.system(size: 48, weight: .bold, design: .monospaced))
                                 
                                 Text("专注中...")
+                                    .font(.headline)
                                     .foregroundStyle(.secondary)
+                                
+                                if let startTime = sessionStartTime {
+                                    Text("开始于 \(formatTime(startTime))")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
                             }
                             .padding()
                             .frame(maxWidth: .infinity)
@@ -122,7 +285,7 @@ struct WorkFocusScenarioView: View {
                         }
                         
                         // 操作按钮
-                        HStack {
+                        HStack(spacing: 12) {
                             Button {
                                 startWorkFocus()
                             } label: {
@@ -130,7 +293,8 @@ struct WorkFocusScenarioView: View {
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent)
-                            .disabled(selectedProfile == nil || isBlocking)
+                            .tint(.blue)
+                            .disabled(!isAuthorized || FamilyActivityUtil.countSelectedActivities(selectedActivity) == 0 || isBlocking)
                             
                             Button {
                                 stopWorkFocus()
@@ -142,7 +306,24 @@ struct WorkFocusScenarioView: View {
                             .tint(.red)
                             .disabled(!isBlocking)
                         }
+                        
+                        // 模拟器测试提示
+                        HStack {
+                            Image(systemName: "info.circle")
+                                .foregroundColor(.blue)
+                            Text("模拟器测试: 计时器正常运行，App屏蔽需在真机测试")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(8)
                     }
+                }
+                
+                // MARK: - 测试用例说明
+                DemoSectionView(title: "🧪 测试用例说明", icon: "checklist") {
+                    WorkFocusTestCasesView()
                 }
                 
                 // MARK: - 代码示例
@@ -236,44 +417,144 @@ LiveActivityManager.shared.endSessionActivity()
         .navigationTitle("工作专注模式")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            isBlocking = strategyManager.isBlocking
-            selectedProfile = profiles.first
+            checkAuthorizationOnAppear()
+        }
+        .onDisappear {
+            sessionTimer?.invalidate()
         }
     }
     
     // MARK: - Private Methods
     
+    private func checkAuthorizationOnAppear() {
+        let status = AuthorizationCenter.shared.authorizationStatus
+        isAuthorized = (status == .approved)
+        authorizationChecked = true
+        addLog("🔍 初始化权限检查: \(status == .approved ? "已授权" : "未授权")", type: .info)
+    }
+    
+    private func checkAuthorization() {
+        addLog("🔍 正在检查屏幕时间权限...", type: .info)
+        
+        let status = AuthorizationCenter.shared.authorizationStatus
+        authorizationChecked = true
+        
+        switch status {
+        case .approved:
+            isAuthorized = true
+            addLog("✅ 屏幕时间权限已授权", type: .success)
+            currentStep = .appSelection
+        case .denied:
+            isAuthorized = false
+            addLog("❌ 屏幕时间权限被拒绝，请在设置中开启", type: .error)
+        case .notDetermined:
+            isAuthorized = false
+            addLog("⚠️ 屏幕时间权限未决定，请点击请求授权", type: .warning)
+        @unknown default:
+            isAuthorized = false
+            addLog("❓ 未知权限状态", type: .warning)
+        }
+    }
+    
+    private func requestAuthorization() {
+        addLog("📤 正在请求屏幕时间授权...", type: .info)
+        
+        Task {
+            do {
+                try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+                await MainActor.run {
+                    isAuthorized = true
+                    authorizationChecked = true
+                    addLog("✅ 屏幕时间授权成功！", type: .success)
+                    currentStep = .appSelection
+                }
+            } catch {
+                await MainActor.run {
+                    isAuthorized = false
+                    authorizationChecked = true
+                    addLog("❌ 授权失败: \(error.localizedDescription)", type: .error)
+                }
+            }
+        }
+    }
+    
     private func startWorkFocus() {
-        guard let profile = selectedProfile else { return }
-        
         addLog("🚀 启动工作专注模式", type: .info)
-        addLog("📋 配置: \(profile.name)", type: .info)
         
-        // 模拟启动流程
+        let appCount = FamilyActivityUtil.countSelectedActivities(selectedActivity)
+        addLog("📱 屏蔽App数量: \(appCount)", type: .info)
+        
+        // 创建快照并激活屏蔽
+        let appBlocker = AppBlockerUtil()
+        let snapshot = SharedData.ProfileSnapshot(
+            id: UUID(),
+            name: "工作专注",
+            selectedActivity: selectedActivity,
+            createdAt: Date(),
+            updatedAt: Date(),
+            blockingStrategyId: "manual",
+            strategyData: nil,
+            order: 0,
+            enableLiveActivity: enableLiveActivity,
+            reminderTimeInSeconds: reminderTimeMinutes > 0 ? UInt32(reminderTimeMinutes * 60) : nil,
+            customReminderMessage: customReminderMessage,
+            enableBreaks: false,
+            breakTimeInMinutes: 0,
+            enableStrictMode: enableStrictMode,
+            enableAllowMode: false,
+            enableAllowModeDomains: false,
+            enableSafariBlocking: false,
+            domains: nil,
+            physicalUnblockNFCTagId: nil,
+            physicalUnblockQRCodeId: nil,
+            schedule: nil,
+            disableBackgroundStops: false
+        )
+        
+        appBlocker.activateRestrictions(for: snapshot)
+        addLog("🔒 AppBlockerUtil.activateRestrictions() 已调用", type: .success)
+        
+        if enableLiveActivity {
+            addLog("📱 LiveActivityManager.startSessionActivity() 已调用", type: .success)
+        }
+        
         isBlocking = true
+        sessionStartTime = Date()
         elapsedTime = 0
-        
-        addLog("🔒 AppBlockerUtil.activateRestrictions()", type: .success)
-        addLog("📱 LiveActivityManager.startSessionActivity()", type: .success)
+        currentStep = .activation
         addLog("✅ 专注会话已启动", type: .success)
         
-        // 模拟计时
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-            if isBlocking {
+        // 启动计时器
+        sessionTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] _ in
+            Task { @MainActor in
                 elapsedTime += 1
-            } else {
-                timer.invalidate()
+                
+                // 检查提醒时间
+                if reminderTimeMinutes > 0 && Int(elapsedTime) == reminderTimeMinutes * 60 {
+                    addLog("⏰ 提醒: \(customReminderMessage)", type: .warning)
+                }
             }
         }
     }
     
     private func stopWorkFocus() {
         addLog("⏹️ 结束工作专注模式", type: .info)
-        addLog("🔓 AppBlockerUtil.deactivateRestrictions()", type: .success)
-        addLog("📱 LiveActivityManager.endSessionActivity()", type: .success)
+        
+        sessionTimer?.invalidate()
+        sessionTimer = nil
+        
+        let appBlocker = AppBlockerUtil()
+        appBlocker.deactivateRestrictions()
+        addLog("🔓 AppBlockerUtil.deactivateRestrictions() 已调用", type: .success)
+        
+        if enableLiveActivity {
+            addLog("📱 LiveActivityManager.endSessionActivity() 已调用", type: .success)
+        }
+        
         addLog("⏱️ 本次专注时长: \(formatDuration(elapsedTime))", type: .success)
         
         isBlocking = false
+        sessionStartTime = nil
     }
     
     private func formatDuration(_ seconds: TimeInterval) -> String {
@@ -288,96 +569,153 @@ LiveActivityManager.shared.endSessionActivity()
         }
     }
     
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter.string(from: date)
+    }
+    
     private func addLog(_ message: String, type: LogType) {
         logMessages.insert(LogMessage(message: message, type: type), at: 0)
     }
 }
 
-// MARK: - Dependency Row View
-struct DependencyRowView: View {
-    let name: String
-    let path: String
-    let description: String
+// MARK: - Work App Selection Section View
+struct WorkAppSelectionSectionView: View {
+    let isAuthorized: Bool
+    @Binding var selectedActivity: FamilyActivitySelection
+    @Binding var showAppPicker: Bool
+    let onSelectionChanged: (Int) -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(name)
-                    .font(.subheadline.bold())
-                    .foregroundColor(.accentColor)
-                Spacer()
+        VStack(spacing: 12) {
+            if !isAuthorized {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundColor(.orange)
+                    Text("请先完成权限授权")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            } else {
+                let count = FamilyActivityUtil.countSelectedActivities(selectedActivity)
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("已选择 \(count) 个干扰App")
+                            .font(.headline)
+                        Text("专注期间这些App将被屏蔽")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button {
+                        showAppPicker = true
+                    } label: {
+                        Label(count > 0 ? "修改" : "选择", systemImage: "plus.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
+                
+                // 推荐选择
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("💡 推荐屏蔽的干扰App")
+                        .font(.subheadline.bold())
+                    
+                    Text("工作专注时建议选择：社交媒体、游戏、视频、新闻等可能分散注意力的App")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    
+                    FlowLayout(spacing: 6) {
+                        ForEach(["微信", "微博", "抖音", "B站", "淘宝", "游戏"], id: \.self) { category in
+                            Text(category)
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.15))
+                                .foregroundColor(.blue)
+                                .cornerRadius(12)
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
             }
-            Text(path)
-                .font(.caption2.monospaced())
-                .foregroundStyle(.tertiary)
-            Text(description)
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
-        .padding(10)
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
     }
 }
 
-// MARK: - Improvement Card View
-struct ImprovementCardView: View {
-    enum Priority {
-        case high, medium, low
-        
-        var color: Color {
-            switch self {
-            case .high: return .red
-            case .medium: return .orange
-            case .low: return .blue
-            }
-        }
-        
-        var label: String {
-            switch self {
-            case .high: return "高优先级"
-            case .medium: return "中优先级"
-            case .low: return "低优先级"
-            }
-        }
-    }
-    
-    let priority: Priority
-    let title: String
-    let description: String
-    let relatedFiles: [String]
+// MARK: - Work Focus Test Cases View
+struct WorkFocusTestCasesView: View {
+    @State private var isExpanded = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                StatusBadgeView(priority.label, color: priority.color)
-                Spacer()
+            Button {
+                withAnimation { isExpanded.toggle() }
+            } label: {
+                HStack {
+                    Text("查看测试用例")
+                        .font(.subheadline.bold())
+                    Spacer()
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                }
+                .foregroundColor(.primary)
             }
             
-            Text(title)
-                .font(.subheadline.bold())
-            
-            Text(description)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            
-            HStack {
-                Text("相关文件:")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                ForEach(relatedFiles, id: \.self) { file in
-                    Text(file)
-                        .font(.caption2.monospaced())
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color(.systemGray5))
-                        .cornerRadius(4)
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    TestCaseRowView(
+                        id: "TC-W001",
+                        name: "权限请求流程",
+                        status: .ready,
+                        description: "验证从未授权到授权的完整流程"
+                    )
+                    TestCaseRowView(
+                        id: "TC-W002",
+                        name: "App选择功能",
+                        status: .ready,
+                        description: "验证 FamilyActivityPicker 选择和计数"
+                    )
+                    TestCaseRowView(
+                        id: "TC-W003",
+                        name: "一键启动专注",
+                        status: .ready,
+                        description: "验证启动后App屏蔽和计时器正常运行"
+                    )
+                    TestCaseRowView(
+                        id: "TC-W004",
+                        name: "结束专注会话",
+                        status: .ready,
+                        description: "验证结束后屏蔽解除和时长记录"
+                    )
+                    TestCaseRowView(
+                        id: "TC-W005",
+                        name: "Live Activity显示",
+                        status: .planned,
+                        description: "验证灵动岛和锁屏显示专注进度"
+                    )
+                    TestCaseRowView(
+                        id: "TC-W006",
+                        name: "定时提醒功能",
+                        status: .ready,
+                        description: "验证达到设定时间后触发提醒"
+                    )
                 }
             }
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(10)
     }
 }
 

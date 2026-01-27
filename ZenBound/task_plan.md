@@ -213,6 +213,59 @@ ZenBound/DemoUI/
 
 ---
 
+## 💼 工作专注/学习计划/番茄工作法 - 完整流程开发 ✅ (2026-01-27)
+
+### 开发目标
+
+增强现有的三个场景视图，实现完整的端到端流程：
+1. **WorkFocusScenarioView** - 工作专注模式 ✅
+2. **StudyPlanScenarioView** - 学习计划模式 ✅
+3. **PomodoroTechniqueScenarioView** - 番茄工作法 ✅
+
+### 完整流程需求
+
+#### Step 1: 权限检查
+- ✅ 复用 AuthorizationCheckSectionView 组件
+- ✅ Screen Time 授权检测
+- ✅ 权限状态实时更新 UI
+
+#### Step 2: 选择要屏蔽的 App
+- ✅ FamilyActivityPicker 集成
+- ✅ 显示已选择数量
+- ✅ 权限联动
+
+#### Step 3: 默认限制设置
+- ✅ 工作专注: 手动开始/结束
+- ✅ 学习计划: 每周日程自动触发
+- ✅ 番茄工作法: 25分钟专注 + 5分钟休息
+
+#### Step 4: 日志输出
+- ✅ 权限检查日志
+- ✅ App选择日志
+- ✅ 激活/停用日志
+- ✅ 模拟测试日志
+
+#### Step 5: 测试用例说明
+- ✅ 每个场景包含测试用例表格
+- ✅ 模拟器快速测试支持
+
+### 文件修改
+
+| 文件                                | 变更                                      | 状态 |
+| ----------------------------------- | ----------------------------------------- | ---- |
+| WorkFocusScenarioView.swift         | 增加权限检查、App选择、完整流程、测试用例 | ✅    |
+| StudyPlanScenarioView.swift         | 增加权限检查、App选择、日程激活、测试用例 | ✅    |
+| PomodoroTechniqueScenarioView.swift | 增加权限检查、App选择、完整番茄循环       | ✅    |
+| DemoComponents.swift                | 提取共享组件避免重复定义                  | ✅    |
+
+### 构建验证
+
+- ✅ xcodebuild 编译成功
+- ✅ 共享组件已添加到 DemoComponents.swift
+- ✅ 移除各场景中的重复组件定义
+
+---
+
 ## 🍅 专注组配置 - 完整开发 ✅ (2026-01-27)
 
 ### 核心功能设计
