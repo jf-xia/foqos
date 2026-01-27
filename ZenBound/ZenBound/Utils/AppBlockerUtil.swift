@@ -113,4 +113,268 @@ import SwiftUI
 
     return []
   }
+
+  // MARK: - Content & Privacy Restrictions (内容与隐私权限制)
+
+  // MARK: iTunes 与 App Store 购买
+  
+  /// 设置 App Store 限制
+  /// - Parameters:
+  ///   - denyInstallation: 禁止安装 App
+  ///   - denyRemoval: 禁止删除 App
+  ///   - denyInAppPurchases: 禁止 App 内购买
+  ///   - requirePassword: 购买时需要密码
+  ///   - maximumRating: App 内容分级 (100=4+, 200=9+, 300=12+, 600=17+, nil=无限制)
+  func setAppStoreRestrictions(
+    denyInstallation: Bool = false,
+    denyRemoval: Bool = false,
+    denyInAppPurchases: Bool = false,
+    requirePassword: Bool = false,
+    maximumRating: Int? = nil
+  ) {
+    print("[ContentPrivacy] Setting App Store restrictions...")
+    print("  - denyInstallation: \(denyInstallation)")
+    print("  - denyRemoval: \(denyRemoval)")
+    print("  - denyInAppPurchases: \(denyInAppPurchases)")
+    print("  - requirePassword: \(requirePassword)")
+    print("  - maximumRating: \(String(describing: maximumRating))")
+    
+    // 注意: denyAppInstallation 和 denyAppRemoval 在 store.application 中
+    store.application.denyAppInstallation = denyInstallation
+    store.application.denyAppRemoval = denyRemoval
+    store.appStore.denyInAppPurchases = denyInAppPurchases
+    store.appStore.requirePasswordForPurchases = requirePassword
+    
+    if let rating = maximumRating {
+      store.appStore.maximumRating = rating
+    } else {
+      store.appStore.maximumRating = nil
+    }
+  }
+  
+  /// 清除 App Store 限制
+  func clearAppStoreRestrictions() {
+    print("[ContentPrivacy] Clearing App Store restrictions...")
+    store.application.denyAppInstallation = false
+    store.application.denyAppRemoval = false
+    store.appStore.denyInAppPurchases = false
+    store.appStore.requirePasswordForPurchases = false
+    store.appStore.maximumRating = nil
+  }
+
+  // MARK: 媒体内容限制
+  
+  /// 设置媒体内容限制
+  /// - Parameters:
+  ///   - maximumMovieRating: 电影内容分级 (200=G, 300=PG, 400=PG-13, 500=R, 600=NC-17)
+  ///   - maximumTVShowRating: 电视节目内容分级 (200=TV-Y, 300=TV-G, 400=TV-PG, 500=TV-14, 600=TV-MA)
+  /// - Note: denyExplicitContent 在 ManagedSettings 框架中不可用，仅记录日志
+  func setMediaRestrictions(
+    denyExplicitContent: Bool = false,
+    maximumMovieRating: Int? = nil,
+    maximumTVShowRating: Int? = nil
+  ) {
+    print("[ContentPrivacy] Setting Media restrictions...")
+    print("  - denyExplicitContent: \(denyExplicitContent) (注意: API 不支持此功能)")
+    print("  - maximumMovieRating: \(String(describing: maximumMovieRating))")
+    print("  - maximumTVShowRating: \(String(describing: maximumTVShowRating))")
+    
+    // 注意: MediaSettings 没有 denyExplicitContent 属性
+    // 此功能需要通过 MDM 或设置 App 中手动配置
+    
+    if let movieRating = maximumMovieRating {
+      store.media.maximumMovieRating = movieRating
+    } else {
+      store.media.maximumMovieRating = nil
+    }
+    
+    if let tvRating = maximumTVShowRating {
+      store.media.maximumTVShowRating = tvRating
+    } else {
+      store.media.maximumTVShowRating = nil
+    }
+  }
+  
+  /// 清除媒体内容限制
+  func clearMediaRestrictions() {
+    print("[ContentPrivacy] Clearing Media restrictions...")
+    store.media.maximumMovieRating = nil
+    store.media.maximumTVShowRating = nil
+  }
+
+  // MARK: Siri 限制
+  
+  /// 设置 Siri 限制
+  /// - Parameters:
+  ///   - denySiri: 完全禁用 Siri
+  /// - Note: 细粒度控制 (网页搜索、语言过滤) 在 ManagedSettings 中不可用
+  func setSiriRestrictions(
+    denySiri: Bool = false
+  ) {
+    print("[ContentPrivacy] Setting Siri restrictions...")
+    print("  - denySiri: \(denySiri)")
+    
+    // 注意: SiriSettings 只有 denySiri 属性
+    // denySiriContentFromWeb 和 denyExplicitContent 不可用
+    store.siri.denySiri = denySiri
+  }
+  
+  /// 清除 Siri 限制
+  func clearSiriRestrictions() {
+    print("[ContentPrivacy] Clearing Siri restrictions...")
+    store.siri.denySiri = false
+  }
+
+  // MARK: Game Center 限制
+  
+  /// 设置 Game Center 限制
+  /// - Parameters:
+  ///   - denyMultiplayer: 禁止多人游戏
+  ///   - denyAddingFriends: 禁止新增朋友
+  func setGameCenterRestrictions(
+    denyMultiplayer: Bool = false,
+    denyAddingFriends: Bool = false
+  ) {
+    print("[ContentPrivacy] Setting Game Center restrictions...")
+    print("  - denyMultiplayer: \(denyMultiplayer)")
+    print("  - denyAddingFriends: \(denyAddingFriends)")
+    
+    store.gameCenter.denyMultiplayerGaming = denyMultiplayer
+    store.gameCenter.denyAddingFriends = denyAddingFriends
+  }
+  
+  /// 清除 Game Center 限制
+  func clearGameCenterRestrictions() {
+    print("[ContentPrivacy] Clearing Game Center restrictions...")
+    store.gameCenter.denyMultiplayerGaming = false
+    store.gameCenter.denyAddingFriends = false
+  }
+
+  // MARK: 隐私权限变更限制
+  
+  /// 设置隐私权限变更限制 (仅记录日志，API 不支持)
+  /// - Note: ManagedSettings 框架不提供隐私权限控制
+  ///         这些功能需要通过 MDM 配置文件实现
+  func setPrivacyRestrictions(
+    denyPhotosModification: Bool = false
+  ) {
+    print("[ContentPrivacy] Setting Privacy restrictions...")
+    print("  - denyPhotosModification: \(denyPhotosModification)")
+    print("  ⚠️ 注意: ManagedSettings 不支持隐私权限控制")
+    print("  ⚠️ 需要通过 MDM 配置文件实现此功能")
+    
+    // ManagedSettingsStore 没有 privacy 属性
+    // 隐私权限控制需要通过设备管理 (MDM) 实现
+  }
+  
+  /// 清除隐私权限限制 (仅记录日志)
+  func clearPrivacyRestrictions() {
+    print("[ContentPrivacy] Clearing Privacy restrictions (no-op)...")
+    // ManagedSettingsStore 没有 privacy 属性
+  }
+
+  // MARK: 系统变更限制
+  
+  /// 设置系统变更限制
+  /// - Parameters:
+  ///   - lockPasscode: 禁止变更密码
+  ///   - lockAccounts: 禁止变更帐号
+  ///   - lockAppCellularData: 禁止 App 变更行动数据设置
+  func setSystemRestrictions(
+    lockPasscode: Bool = false,
+    lockAccounts: Bool = false,
+    lockAppCellularData: Bool = false
+  ) {
+    print("[ContentPrivacy] Setting System restrictions...")
+    print("  - lockPasscode: \(lockPasscode)")
+    print("  - lockAccounts: \(lockAccounts)")
+    print("  - lockAppCellularData: \(lockAppCellularData)")
+    
+    store.passcode.lockPasscode = lockPasscode
+    store.account.lockAccounts = lockAccounts
+    store.cellular.lockAppCellularData = lockAppCellularData
+  }
+  
+  /// 清除系统变更限制
+  func clearSystemRestrictions() {
+    print("[ContentPrivacy] Clearing System restrictions...")
+    store.passcode.lockPasscode = false
+    store.account.lockAccounts = false
+    store.cellular.lockAppCellularData = false
+  }
+
+  // MARK: 一键应用所有内容与隐私限制
+  
+  /// 批量应用内容与隐私限制配置
+  struct ContentPrivacyConfig {
+    // App Store / Application
+    var denyAppInstallation: Bool = false
+    var denyAppRemoval: Bool = false
+    var denyInAppPurchases: Bool = false
+    var requirePasswordForPurchases: Bool = false
+    var appStoreMaximumRating: Int? = nil
+    
+    // Media (仅支持分级限制)
+    var maximumMovieRating: Int? = nil
+    var maximumTVShowRating: Int? = nil
+    
+    // Siri (仅支持完全禁用)
+    var denySiri: Bool = false
+    
+    // Game Center
+    var denyMultiplayerGaming: Bool = false
+    var denyAddingFriends: Bool = false
+    
+    // System
+    var lockPasscode: Bool = false
+    var lockAccounts: Bool = false
+    var lockAppCellularData: Bool = false
+  }
+  
+  /// 应用完整的内容与隐私限制配置
+  func applyContentPrivacyRestrictions(_ config: ContentPrivacyConfig) {
+    print("[ContentPrivacy] Applying full Content & Privacy restrictions...")
+    
+    setAppStoreRestrictions(
+      denyInstallation: config.denyAppInstallation,
+      denyRemoval: config.denyAppRemoval,
+      denyInAppPurchases: config.denyInAppPurchases,
+      requirePassword: config.requirePasswordForPurchases,
+      maximumRating: config.appStoreMaximumRating
+    )
+    
+    setMediaRestrictions(
+      maximumMovieRating: config.maximumMovieRating,
+      maximumTVShowRating: config.maximumTVShowRating
+    )
+    
+    setSiriRestrictions(
+      denySiri: config.denySiri
+    )
+    
+    setGameCenterRestrictions(
+      denyMultiplayer: config.denyMultiplayerGaming,
+      denyAddingFriends: config.denyAddingFriends
+    )
+    
+    setSystemRestrictions(
+      lockPasscode: config.lockPasscode,
+      lockAccounts: config.lockAccounts,
+      lockAppCellularData: config.lockAppCellularData
+    )
+    
+    print("[ContentPrivacy] All restrictions applied successfully!")
+  }
+  
+  /// 清除所有内容与隐私限制
+  func clearAllContentPrivacyRestrictions() {
+    print("[ContentPrivacy] Clearing all Content & Privacy restrictions...")
+    clearAppStoreRestrictions()
+    clearMediaRestrictions()
+    clearSiriRestrictions()
+    clearGameCenterRestrictions()
+    clearPrivacyRestrictions()
+    clearSystemRestrictions()
+    print("[ContentPrivacy] All restrictions cleared!")
+  }
 }

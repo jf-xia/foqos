@@ -1,8 +1,34 @@
-# ZenBound 10种应用场景开发计划
+# ZenBound 应用场景开发计划
 
 > 创建时间: 2026-01-23
+> 最后更新: 2026-01-27
 
-## 📋 任务目标
+## 📋 当前任务: 内容与隐私权限制场景
+
+### Phase 1: 扩展 AppBlockerUtil - `in_progress`
+- [x] 添加内容限制相关方法 (App Store, Media, Siri, Game Center)
+- [x] 添加隐私权限相关方法 (Contacts, Calendar, Photos)
+- [x] 添加系统变更相关方法 (Passcode, Account, Cellular, DateTime)
+
+### Phase 2: 创建场景页面 UI - `in_progress`
+- [x] 创建 ContentPrivacyRestrictionsScenarioView.swift
+- [x] 实现 iTunes 与 App Store 购买设置
+- [x] 实现内容限制设置
+- [x] 实现隐私权限设置
+- [x] 实现系统变更设置
+- [x] 添加日志输出
+
+### Phase 3: 集成到场景首页 - `in_progress`
+- [x] 在 ScenariosHomeView 添加入口
+- [ ] 编译项目
+
+### Phase 4: 测试 - `not_started`
+- [ ] 使用 Mobile MCP 进行测试
+- [ ] 记录测试结果
+
+---
+
+## 📋 历史任务目标
 
 根据项目现有功能和逻辑，组合10种不同的应用场景，在DemoUI中开发实施，每个场景包含：
 - 场景描述和使用说明

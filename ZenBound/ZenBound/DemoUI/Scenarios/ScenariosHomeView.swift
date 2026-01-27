@@ -188,6 +188,18 @@ struct ScenariosHomeView: View {
                         color: .pink
                     )
                 }
+                
+                NavigationLink {
+                    ContentPrivacyRestrictionsScenarioView()
+                } label: {
+                    ScenarioRowView(
+                        icon: "hand.raised.fill",
+                        title: "内容与隐私权限制",
+                        subtitle: "App Store、媒体内容、系统设置限制",
+                        color: .purple,
+                        isNew: true
+                    )
+                }
             } header: {
                 Label("⚙️ 高级功能", systemImage: "gearshape.2.fill")
             }

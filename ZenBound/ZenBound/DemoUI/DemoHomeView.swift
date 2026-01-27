@@ -25,7 +25,7 @@ struct DemoHomeView: View {
                                 .frame(width: 32)
                             
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("11种应用场景")
+                                Text("12种应用场景")
                                     .font(.headline)
                                 Text("功能组合实战演示")
                                     .font(.caption)
