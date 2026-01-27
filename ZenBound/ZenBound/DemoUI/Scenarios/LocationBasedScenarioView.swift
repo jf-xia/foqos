@@ -76,6 +76,11 @@ struct LocationBasedScenarioView: View {
     @State private var simulatedLocation: LocationPresetType?
     @State private var showTestResults = false
     
+    // MARK: - 屏蔽状态
+    @State private var isBlockingActive = false
+    @State private var activeLocationProfile: LocationProfile?
+    private let appBlocker = AppBlockerUtil()
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -131,6 +136,15 @@ struct LocationBasedScenarioView: View {
         .onAppear {
             addLog("📍 地理位置场景已加载", type: .info)
             checkInitialAuthorization()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .locationDidChange)) { notification in
+            handleLocationChange(notification)
+        }
+        // 监听位置更新，检查是否在已配置的地理围栏内
+        .onChange(of: locationManager.currentLocation) { _, newLocation in
+            if let location = newLocation {
+                checkLocationAgainstGeofences(location)
+            }
         }
     }
     
@@ -879,6 +893,42 @@ struct LocationBasedScenarioView: View {
                 .background(locationManager.isMonitoring ? Color.green.opacity(0.1) : Color(.systemGray6))
                 .cornerRadius(10)
                 
+                // 屏蔽状态
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("屏蔽状态")
+                            .font(.subheadline.bold())
+                        if isBlockingActive, let activeProfile = activeLocationProfile {
+                            Text("激活于: \(activeProfile.name)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("未激活")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    if isBlockingActive {
+                        HStack(spacing: 4) {
+                            Image(systemName: "shield.fill")
+                                .font(.caption)
+                            Text("屏蔽中")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                }
+                .padding()
+                .background(isBlockingActive ? Color.red.opacity(0.1) : Color(.systemGray6))
+                .cornerRadius(10)
+                
                 // 当前位置
                 if let currentRegion = locationManager.currentRegionIdentifier {
                     HStack {
@@ -1213,8 +1263,14 @@ struct LocationBasedScenarioView: View {
     }
     
     private func startLocationMonitoring() {
+        let enabledProfiles = locationProfiles.filter({ $0.isEnabled })
+        
+        addLog("🚀 开始启动位置监控...", type: .info)
+        addLog("📋 共有 \(enabledProfiles.count) 个启用的位置配置", type: .info)
+        
         // 注册所有启用的位置围栏
-        for profile in locationProfiles.filter({ $0.isEnabled }) {
+        for profile in enabledProfiles {
+            addLog("   → 注册围栏: \(profile.name) (\(String(format: "%.4f", profile.latitude)), \(String(format: "%.4f", profile.longitude))) 半径: \(Int(profile.radius))m", type: .info)
             locationManager.registerGeofence(
                 identifier: profile.geofenceIdentifier,
                 coordinate: profile.coordinate,
@@ -1223,12 +1279,22 @@ struct LocationBasedScenarioView: View {
         }
         
         locationManager.startMonitoring()
-        addLog("🚀 位置监控已启动", type: .success)
+        addLog("✅ 位置监控已启动", type: .success)
         currentStep = .testing
+        
+        // 立即检查当前位置是否在任何地理围栏内
+        if let currentLocation = locationManager.currentLocation {
+            addLog("📍 立即检查当前位置...", type: .info)
+            checkLocationAgainstGeofences(currentLocation)
+        } else {
+            addLog("⚠️ 当前位置未知，请求位置更新...", type: .warning)
+            locationManager.requestLocation()
+        }
     }
     
     private func stopLocationMonitoring() {
         locationManager.stopMonitoring()
+        deactivateBlocking()
         addLog("⏹️ 位置监控已停止", type: .info)
     }
     
@@ -1290,6 +1356,157 @@ struct LocationBasedScenarioView: View {
         case .locationUpdate: return .blue
         case .log: return .secondary
         }
+    }
+    
+    // MARK: - 位置变化处理
+    
+    /// 处理位置变化通知（进入/离开地理围栏）
+    private func handleLocationChange(_ notification: Notification) {
+        guard let event = notification.object as? LocationEvent else {
+            addLog("⚠️ 收到位置通知但无法解析事件", type: .warning)
+            return
+        }
+        
+        addLog("📍 收到位置变化通知: \(event.type.rawValue) - \(event.regionIdentifier ?? "无区域")", type: .info)
+        
+        switch event.type {
+        case .enter:
+            handleEnterRegion(event)
+        case .exit:
+            handleExitRegion(event)
+        default:
+            break
+        }
+    }
+    
+    /// 手动检查当前位置是否在任何已配置的地理围栏内
+    private func checkLocationAgainstGeofences(_ location: CLLocation) {
+        let enabledProfiles = locationProfiles.filter { $0.isEnabled }
+        
+        addLog("🔍 检查当前位置: (\(String(format: "%.6f", location.coordinate.latitude)), \(String(format: "%.6f", location.coordinate.longitude)))", type: .info)
+        addLog("📋 已启用的位置配置: \(enabledProfiles.count) 个", type: .info)
+        
+        for profile in enabledProfiles {
+            let profileLocation = CLLocation(latitude: profile.latitude, longitude: profile.longitude)
+            let distance = location.distance(from: profileLocation)
+            
+            addLog("   → \(profile.name): 距离 \(String(format: "%.1f", distance))m, 围栏半径 \(Int(profile.radius))m", type: .info)
+            
+            if distance <= profile.radius {
+                addLog("   ✅ 当前位于【\(profile.name)】范围内!", type: .success)
+                
+                // 如果还没有激活屏蔽，或者是不同的位置，则激活
+                if !isBlockingActive || activeLocationProfile?.id != profile.id {
+                    activateBlockingForLocation(profile)
+                }
+                return // 找到一个匹配的就返回
+            }
+        }
+        
+        // 如果不在任何地理围栏内，且屏蔽是激活的，则停用
+        if isBlockingActive {
+            addLog("📍 当前不在任何已配置的地理围栏内，停用屏蔽", type: .info)
+            deactivateBlocking()
+        }
+    }
+    
+    /// 处理进入区域事件
+    private func handleEnterRegion(_ event: LocationEvent) {
+        guard let regionId = event.regionIdentifier else { return }
+        
+        addLog("🚶‍♂️ 进入地理围栏: \(regionId)", type: .success)
+        
+        // 查找对应的 LocationProfile
+        if let profile = LocationProfile.find(byGeofenceId: regionId, in: modelContext) {
+            addLog("   → 匹配到位置配置: \(profile.name)", type: .info)
+            activateBlockingForLocation(profile)
+        } else {
+            addLog("   ⚠️ 未找到匹配的位置配置", type: .warning)
+        }
+    }
+    
+    /// 处理离开区域事件
+    private func handleExitRegion(_ event: LocationEvent) {
+        guard let regionId = event.regionIdentifier else { return }
+        
+        addLog("🚶 离开地理围栏: \(regionId)", type: .info)
+        
+        // 如果离开的是当前激活屏蔽的位置，则停用屏蔽
+        if let activeProfile = activeLocationProfile,
+           activeProfile.geofenceIdentifier == regionId {
+            addLog("   → 离开当前激活的位置，停用屏蔽", type: .info)
+            deactivateBlocking()
+        }
+    }
+    
+    /// 为指定位置激活屏蔽
+    private func activateBlockingForLocation(_ profile: LocationProfile) {
+        addLog("🔒 准备为位置【\(profile.name)】激活屏蔽...", type: .info)
+        
+        // 检查位置是否有关联的屏蔽配置
+        if let blockedProfileId = profile.blockedProfileId {
+            addLog("   → 查找关联的屏蔽配置 ID: \(blockedProfileId)", type: .info)
+            
+            // 查找关联的 BlockedProfiles
+            if let blockedProfile = profiles.first(where: { $0.id == blockedProfileId }) {
+                addLog("   → 找到屏蔽配置: \(blockedProfile.name)", type: .success)
+                
+                // 获取快照并激活屏蔽
+                let snapshot = BlockedProfiles.getSnapshot(for: blockedProfile)
+                appBlocker.activateRestrictions(for: snapshot)
+                
+                isBlockingActive = true
+                activeLocationProfile = profile
+                
+                addLog("✅ 屏蔽已激活! 位置: \(profile.name), 配置: \(blockedProfile.name)", type: .success)
+            } else {
+                addLog("   ❌ 未找到关联的屏蔽配置", type: .error)
+            }
+        } else {
+            addLog("   ⚠️ 该位置未关联屏蔽配置，使用默认 App 选择", type: .warning)
+            
+            // 如果没有关联屏蔽配置，但选择了 App，则直接使用选择的 App
+            if FamilyActivityUtil.countSelectedActivities(selectedActivity) > 0 {
+                addLog("   → 使用已选择的 \(FamilyActivityUtil.countSelectedActivities(selectedActivity)) 个 App", type: .info)
+                
+                // 创建临时快照
+                let tempSnapshot = SharedData.ProfileSnapshot(
+                    id: UUID(),
+                    name: profile.name,
+                    selectedActivity: selectedActivity,
+                    createdAt: Date(),
+                    updatedAt: Date(),
+                    order: 0,
+                    enableLiveActivity: false,
+                    enableBreaks: false,
+                    enableStrictMode: false,
+                    enableAllowMode: false,
+                    enableAllowModeDomains: false,
+                    enableSafariBlocking: false
+                )
+                
+                appBlocker.activateRestrictions(for: tempSnapshot)
+                isBlockingActive = true
+                activeLocationProfile = profile
+                
+                addLog("✅ 屏蔽已激活! 位置: \(profile.name)", type: .success)
+            } else {
+                addLog("   ❌ 没有选择要屏蔽的 App", type: .error)
+            }
+        }
+    }
+    
+    /// 停用屏蔽
+    private func deactivateBlocking() {
+        guard isBlockingActive else { return }
+        
+        appBlocker.deactivateRestrictions()
+        
+        let previousLocation = activeLocationProfile?.name ?? "未知"
+        isBlockingActive = false
+        activeLocationProfile = nil
+        
+        addLog("🔓 屏蔽已停用 (之前位置: \(previousLocation))", type: .info)
     }
 }
 
