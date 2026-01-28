@@ -1,0 +1,10 @@
+{
+  "name": "zenbound-appium-scripts",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "appium:start-mcp": "./scripts/appium/start_appium_mcp.sh",
+    "appium:start": "./scripts/appium/start_appium.sh",
+    "appium:demo": "./scripts/appium/run_demo_session.sh"
+  }
+}
